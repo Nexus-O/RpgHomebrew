@@ -5,7 +5,7 @@ export default function Navbar() {
         
         {/* Logo */}
         <div className="flex items-center gap-3">
-          <img src="/logo-nav.webp" alt="Nexus Carmesin" className="h-8" />
+          <img src="/logo-nav.webp" alt="Nexus Carmesin" className="h-12" />
         </div>
 
         {/* Menu */}
