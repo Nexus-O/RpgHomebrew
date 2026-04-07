@@ -6,9 +6,6 @@ export default function Navbar() {
         {/* Logo */}
         <div className="flex items-center gap-3">
           <img src="/logo-nav.webp" alt="Nexus Carmesin" className="h-8" />
-          <span className="text-white font-semibold tracking-widest text-sm">
-            NEXUS <span className="text-red-600">CARMESIN</span>
-          </span>
         </div>
 
         {/* Menu */}
