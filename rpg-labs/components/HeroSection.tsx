@@ -531,7 +531,7 @@ export default function HeroSection() {
             <strong>E SE CORROMPEM</strong>
           </p>
 
-          <Link href="/jogar" className="btn-play">
+          <Link href="/dashboard" className="btn-play">
             <span className="corner corner-tl" />
             <span className="corner corner-tr" />
             <span className="corner corner-bl" />
