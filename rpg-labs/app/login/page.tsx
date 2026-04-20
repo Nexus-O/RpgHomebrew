@@ -832,15 +832,6 @@ export default function LoginPage() {
                 Continuar com Google
               </button>
               
-              <button 
-                type="button" 
-                onClick={handleDiscordLogin} 
-                className="social-btn discord"
-                disabled={isLoading}
-              >
-                <span className="social-icon">D</span>
-                Continuar com Discord
-              </button>
             </div>
 
             <div className="register-link">

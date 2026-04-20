@@ -513,45 +513,50 @@ export default function RegistroPage() {
         .corner-br { bottom: 3px; right: 3px; border-width: 0 1px 1px 0; }
 
         .social-login {
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-            margin-top: 1.5rem;
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+          margin-top: 1.5rem;
         }
-        
+
         .social-btn {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-family: 'Cinzel', serif;
-            font-size: 0.85rem;
-            font-weight: 700;
-            letter-spacing: 0.25em;
-            text-transform: uppercase;
-            gap: 0.5rem;
-            padding: 0.8rem;
-            border-radius: 5px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.3s;
-            border: 1px solid #333;
-            background-color: var(--input-bg);
-            color: var(--light-text);
-            text-decoration: none;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-family: 'Cinzel', serif;
+          font-size: 0.75rem;
+          font-weight: 600;
+          letter-spacing: 0.15em;
+          text-transform: uppercase;
+          gap: 0.75rem;
+          padding: 0.875rem;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          border: 1px solid rgba(100, 20, 20, 0.5);
+          background: rgba(8, 2, 2, 0.8);
+          color: #d4c4c4;
+          text-decoration: none;
         }
-        
+
         .social-btn:hover {
-            background-color: #222;
+          transform: translateY(-2px);
+          border-color: #cc1a1a;
         }
-        
-        .social-btn.google {
-            background-color: #4285F4;
-            border-color: #4285F4;
+
+        .social-btn.google:hover {
+          background: #4285F4;
+          border-color: #4285F4;
+          color: #fff;
         }
-        
-        .social-btn.discord {
-            background-color: #5865F2;
-            border-color: #5865F2;
+
+        .social-btn.discord:hover {
+          background: #5865F2;
+          border-color: #5865F2;
+          color: #fff;
+        }
+
+        .social-icon {
+          font-size: 1.2rem;
         }
 
         /* Loading spinner */
@@ -809,12 +814,22 @@ export default function RegistroPage() {
             </form>
             <div style={{ marginTop: "1.5rem", display: "flex", flexDirection: "column", gap: "10px" }}>
                                               
-  <div className="social-login">
-                    <button type="button" onClick={handleGoogleLogin} className="social-btn google">
-                        <i className="fab fa-google"></i> Continuar com Google
-                    </button>
-                    
-                </div>
+  <div className="divider">
+              <span>ou conecte-se com</span>
+            </div>
+
+            <div className="social-login">
+              <button 
+                type="button" 
+                onClick={handleGoogleLogin} 
+                className="social-btn google"
+                disabled={isLoading}
+              >
+                <span className="social-icon">G</span>
+                Continuar com Google
+              </button>
+              
+            </div>
             
 
 </div>
