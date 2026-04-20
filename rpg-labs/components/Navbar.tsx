@@ -20,7 +20,7 @@ export default function Navbar() {
           text-transform: uppercase;
           transition: color 0.25s ease;
           position: relative;
-          padding-bottom: -2px;
+          padding-bottom: 2px;
         }
         .nav-link::after {
           content: '';
@@ -44,7 +44,7 @@ export default function Navbar() {
           font-size: 0.72rem;
           letter-spacing: 0.16em;
           color: #999;
-          border: 1px solid #7289da;
+          border: 1px solid #555;
           padding: 6px 16px;
           text-transform: uppercase;
           background: transparent;
@@ -160,9 +160,9 @@ export default function Navbar() {
           {/* Logo */}
           <Link href="/" className="flex items-center gap-3 flex-shrink-0">
             <img
-              src="/logo.png"
+              src="/logo-nav.webp"
               alt="Nexus Carmesin Logo"
-              className="h-16 w-auto object-contain"
+              className="h-12 w-auto object-contain"
             />
             <div className="flex flex-col">
               <span className="brand-text-nexus">N E X U S</span>
@@ -170,14 +170,15 @@ export default function Navbar() {
             </div>
           </Link>
 
-          {/* Links centrais — desktop */}
-          <div className="hidden md:flex items-center gap-10">
+          {/* Links + Botões agrupados à direita */}
+          <div className="hidden md:flex items-center gap-8">
             <Link href="/" className="nav-link">Início</Link>
             <Link href="/downloads" className="nav-link">Downloads</Link>
-          </div>
 
-          {/* Ações — desktop */}
-          <div className="hidden md:flex items-center gap-3">
+            {/* Separador visual sutil */}
+            <div className="w-px h-5 bg-red-900/50" />
+
+            <div className="flex items-center gap-3">
             <a
               href="https://discord.gg/"
               target="_blank"
@@ -192,6 +193,7 @@ export default function Navbar() {
             <Link href="/register" className="btn-register">
               Registre-se
             </Link>
+            </div>
           </div>
 
           {/* Hamburger — mobile */}
