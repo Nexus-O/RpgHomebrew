@@ -846,7 +846,7 @@ export default function LoginPage() {
             <div className="register-link">
               <p>
                 Novo no reino?{" "}
-                <Link href="/registro" className="link-highlight">
+                <Link href="/register" className="link-highlight">
                   Forje seu destino
                 </Link>
               </p>
