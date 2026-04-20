@@ -295,14 +295,21 @@ export default function HeroSection() {
           height: 18px;
           border-right: 1px solid var(--crimson);
           border-bottom: 1px solid var(--crimson);
-          transform: rotate(45deg);
-          align-self: center;
-          animation: chevron-pulse 1.8s ease-in-out infinite;
-        }
-        @keyframes chevron-pulse {
-          0%, 100% { opacity: 0.3; transform: rotate(45deg) translateY(-3px); }
-          50%       { opacity: 1;   transform: rotate(45deg) translateY(3px);  }
-        }
+           /* NÃO aplicar transform fixo aqui! */
+          margin: 0 auto;
+          display: block;
+          }
+
+@keyframes chevron-pulse {
+  0%, 100% { 
+    opacity: 0.3; 
+    transform: rotate(45deg) translateY(-3px); 
+  }
+  50% { 
+    opacity: 1; 
+    transform: rotate(45deg) translateY(3px); 
+  }
+}
 
         /* ── Tabletop Section ── */
         .tabletop-section {
