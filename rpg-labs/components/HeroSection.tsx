@@ -88,7 +88,7 @@ export default function HeroSection() {
         .hero-bg {
           position: absolute;
           inset: 0;
-          background-image: url('/hero-bg.webp');
+          background-image: url('/hero-bg.jpg');
           background-size: cover;
           background-position: center 30%;
           filter: brightness(0.55) saturate(1.2);
