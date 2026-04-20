@@ -3,7 +3,68 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { auth } from "@/lib/firebase";
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
 
+import {
+  createUserWithEmailAndPassword,
+  signInWithPopup,
+  GoogleAuthProvider,
+  OAuthProvider,
+} from "firebase/auth";
+
+export default function RegisterPage() {
+  const router = useRouter();
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  // Providers
+  const googleProvider = new GoogleAuthProvider();
+  const discordProvider = new OAuthProvider("discord.com");
+}
+  // ───────────── EMAIL REGISTER ─────────────
+  async function handleRegister(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+
+    try {
+      await createUserWithEmailAndPassword(auth, email, password);
+      router.push("/dashboard"); // muda depois se quiser
+    } catch (err: any) {
+      setError(err.message);
+    }
+
+    setLoading(false);
+  }
+
+  // ───────────── GOOGLE LOGIN ─────────────
+  async function handleGoogleLogin() {
+    setError("");
+    try {
+      await signInWithPopup(auth, googleProvider);
+      router.push("/dashboard");
+    } catch (err: any) {
+      setError(err.message);
+    }
+  }
+
+  // ───────────── DISCORD LOGIN ─────────────
+  async function handleDiscordLogin() {
+    setError("");
+    try {
+      await signInWithPopup(auth, discordProvider);
+      router.push("/dashboard");
+    } catch (err: any) {
+      setError(err.message);
+    }
+  }
 export default function RegistroPage() {
   const router = useRouter();
   const [formData, setFormData] = useState({
@@ -67,6 +128,19 @@ export default function RegistroPage() {
       router.push("/dashboard");
     }, 1500);
   };
+  const firebaseConfig = {
+  apiKey: "AIzaSyB05qSKADcpSxtLiRpYdZ-fE_K7-cZvoi4",
+  authDomain: "nexus-carmesin.firebaseapp.com",
+  databaseURL: "https://nexus-carmesin-default-rtdb.firebaseio.com",
+  projectId: "nexus-carmesin",
+  storageBucket: "nexus-carmesin.firebasestorage.app",
+  messagingSenderId: "678117680506",
+  appId: "1:678117680506:web:ede3aff84beb3767f162c3",
+  measurementId: "G-XJRK70S0J4"
+};
+
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
 
   return (
     <>
