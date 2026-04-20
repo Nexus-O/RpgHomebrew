@@ -2,67 +2,121 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { auth } from "../firebase";
 import { onAuthStateChanged, signOut } from "firebase/auth";
+import { auth, db } from "../firebase";
+
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  orderBy,
+  limit,
+} from "firebase/firestore";
 
 export default function Dashboard() {
   const router = useRouter();
+
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
+  const [stats, setStats] = useState({
+    characters: 0,
+    campaigns: 0,
+  });
+
+  const [activities, setActivities] = useState<any[]>([]);
+
+  // 🔐 PROTEÇÃO
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => {
-      if (!u) {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (!user) {
         router.push("/login");
       } else {
-        setUser(u);
+        setUser(user);
+        await loadData(user.uid);
       }
       setLoading(false);
     });
 
-    return () => unsub();
-  }, [router]);
+    return () => unsubscribe();
+  }, []);
+
+  // 🔥 CARREGAR DADOS REAIS
+  const loadData = async (uid: string) => {
+    try {
+      // personagens
+      const charQuery = query(
+        collection(db, "characters"),
+        where("userId", "==", uid)
+      );
+      const charSnap = await getDocs(charQuery);
+
+      // campanhas
+      const campQuery = query(
+        collection(db, "campaigns"),
+        where("members", "array-contains", uid)
+      );
+      const campSnap = await getDocs(campQuery);
+
+      // atividades
+      const actQuery = query(
+        collection(db, "activities"),
+        where("userId", "==", uid),
+        orderBy("createdAt", "desc"),
+        limit(5)
+      );
+      const actSnap = await getDocs(actQuery);
+
+      setStats({
+        characters: charSnap.size,
+        campaigns: campSnap.size,
+      });
+
+      setActivities(
+        actSnap.docs.map((doc) => doc.data())
+      );
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const handleLogout = async () => {
     await signOut(auth);
     router.push("/login");
   };
 
-  if (loading) return null;
+  if (loading) return <p style={{ color: "white" }}>Carregando...</p>;
 
   return (
     <>
       <style jsx global>{`
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Crimson+Pro:wght@300;400&display=swap');
+
         body {
-          margin: 0;
-          background: #0b0202;
-          font-family: 'Crimson Pro', serif;
+          background: #050101;
+          color: #e6dede;
         }
       `}</style>
 
       <style>{`
-        .container {
+        .dashboard {
           display: flex;
           min-height: 100vh;
-          color: #d4c4c4;
         }
 
-        /* Sidebar */
+        /* SIDEBAR */
         .sidebar {
           width: 260px;
-          background: #140404;
-          border-right: 1px solid rgba(200, 30, 30, 0.3);
-          padding: 2rem 1rem;
-          display: flex;
-          flex-direction: column;
-          justify-content: space-between;
+          background: #0a0202;
+          border-right: 1px solid rgba(150,30,30,0.3);
+          padding: 2rem 1.5rem;
         }
 
         .logo {
           font-family: 'Cinzel', serif;
-          font-size: 1.4rem;
-          letter-spacing: 0.2em;
-          text-align: center;
+          font-size: 1.5rem;
+          font-weight: 900;
           margin-bottom: 2rem;
           color: #cc1a1a;
         }
@@ -74,29 +128,21 @@ export default function Dashboard() {
         }
 
         .menu button {
-          background: none;
-          border: 1px solid transparent;
-          color: #d4c4c4;
-          padding: 0.7rem;
+          background: transparent;
+          border: none;
+          color: #a88;
           text-align: left;
+          font-family: 'Cinzel', serif;
+          letter-spacing: 0.1em;
           cursor: pointer;
           transition: 0.3s;
         }
 
         .menu button:hover {
-          border-color: #cc1a1a;
-          background: rgba(200, 20, 20, 0.1);
+          color: #fff;
         }
 
-        .logout {
-          border: 1px solid #cc1a1a;
-          background: none;
-          color: #cc1a1a;
-          padding: 0.7rem;
-          cursor: pointer;
-        }
-
-        /* Main */
+        /* MAIN */
         .main {
           flex: 1;
           padding: 2rem;
@@ -104,96 +150,112 @@ export default function Dashboard() {
 
         .title {
           font-family: 'Cinzel', serif;
-          font-size: 2rem;
-          margin-bottom: 1rem;
+          font-size: 2.5rem;
+          margin-bottom: 2rem;
         }
 
-        .grid {
+        .cards {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+          grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
           gap: 1.5rem;
         }
 
         .card {
-          background: rgba(20, 4, 4, 0.9);
-          border: 1px solid rgba(200, 30, 30, 0.4);
-          padding: 1.2rem;
+          background: rgba(20,5,5,0.9);
+          border: 1px solid rgba(150,30,30,0.3);
+          padding: 1.5rem;
           transition: 0.3s;
         }
 
         .card:hover {
           transform: translateY(-4px);
-          box-shadow: 0 0 20px rgba(200, 30, 30, 0.4);
+          box-shadow: 0 0 20px rgba(200,20,20,0.3);
         }
 
         .card h3 {
           font-family: 'Cinzel', serif;
           margin-bottom: 0.5rem;
-          color: #fff;
         }
 
-        .inventory-item {
-          border-bottom: 1px solid rgba(200, 30, 30, 0.2);
-          padding: 0.3rem 0;
+        .card span {
+          font-size: 2rem;
+        }
+
+        /* ATIVIDADE */
+        .activity {
+          margin-top: 2rem;
+        }
+
+        .activity h2 {
+          font-family: 'Cinzel', serif;
+          margin-bottom: 1rem;
+        }
+
+        .activity-item {
+          padding: 1rem;
+          border-bottom: 1px solid rgba(100,20,20,0.3);
+          font-family: 'Crimson Pro', serif;
+        }
+
+        .topbar {
+          display: flex;
+          justify-content: space-between;
+          margin-bottom: 2rem;
+        }
+
+        .logout {
+          cursor: pointer;
+          color: #cc1a1a;
         }
       `}</style>
 
-      <div className="container">
-        {/* Sidebar */}
+      <div className="dashboard">
+        {/* SIDEBAR */}
         <div className="sidebar">
-          <div>
-            <div className="logo">NEXUS</div>
+          <div className="logo">Purgatum</div>
 
-            <div className="menu">
-              <button>🏰 Dashboard</button>
-              <button>🧙 Personagens</button>
-              <button>📜 Campanhas</button>
-              <button>🎒 Inventário</button>
-              <button>⚙️ Configurações</button>
-            </div>
+          <div className="menu">
+            <button>Dashboard</button>
+            <button>Personagens</button>
+            <button>Campanhas</button>
+            <button>Inventário</button>
+            <button onClick={handleLogout}>Sair</button>
           </div>
-
-          <button onClick={handleLogout} className="logout">
-            Sair
-          </button>
         </div>
 
-        {/* Main */}
+        {/* MAIN */}
         <div className="main">
-          <div className="title">
-            Bem-vindo, {user?.email}
+          <div className="topbar">
+            <div className="title">Dashboard</div>
+            <div>{user?.email}</div>
           </div>
 
-          <div className="grid">
-            {/* Personagens */}
+          {/* CARDS */}
+          <div className="cards">
             <div className="card">
-              <h3>🧙 Seus Personagens</h3>
-              <p>Cavaleiro Carmesim</p>
-              <p>Mago da Ruína</p>
+              <h3>Personagens</h3>
+              <span>{stats.characters}</span>
             </div>
 
-            {/* Campanhas */}
             <div className="card">
-              <h3>📜 Campanhas Ativas</h3>
-              <p>Queda do Reino</p>
-              <p>Praga Negra</p>
+              <h3>Campanhas</h3>
+              <span>{stats.campaigns}</span>
             </div>
+          </div>
 
-            {/* Inventário */}
-            <div className="card">
-              <h3>🎒 Inventário</h3>
-              <div className="inventory-item">Espada +3</div>
-              <div className="inventory-item">Poção de Vida</div>
-              <div className="inventory-item">Armadura Sombria</div>
-            </div>
+          {/* ATIVIDADE REAL */}
+          <div className="activity">
+            <h2>Atividade Recente</h2>
 
-            {/* Status */}
-            <div className="card">
-              <h3>🔥 Status</h3>
-              <p>Nível: 12</p>
-              <p>XP: 3400</p>
-              <p>Ouro: 120</p>
-            </div>
+            {activities.length === 0 && (
+              <p>Nenhuma atividade ainda...</p>
+            )}
+
+            {activities.map((act, i) => (
+              <div key={i} className="activity-item">
+                {act.message}
+              </div>
+            ))}
           </div>
         </div>
       </div>

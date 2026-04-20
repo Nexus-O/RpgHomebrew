@@ -1,5 +1,7 @@
-import { initializeApp } from "firebase/app";
+import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
+
 
 const firebaseConfig = {
   apiKey: "AIzaSyB05qSKADcpSxtLiRpYdZ-fE_K7-cZvoi4",
@@ -12,6 +14,9 @@ const firebaseConfig = {
   measurementId: "G-XJRK70S0J4"
 };
 
-const app = initializeApp(firebaseConfig);
+// 🔥 Evita reinicializar no Next.js (ESSENCIAL)
+const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
+// 🔥 Serviços
 export const auth = getAuth(app);
+export const db = getFirestore(app);
