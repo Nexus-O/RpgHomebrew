@@ -296,6 +296,7 @@ export default function HeroSection() {
           border-right: 1px solid var(--crimson);
           border-bottom: 1px solid var(--crimson);
           transform: rotate(45deg);
+          margin: 0 auto; /* Centrraliza DEsgraca a*/
           animation: chevron-pulse 1.8s ease-in-out infinite;
         }
         @keyframes chevron-pulse {
