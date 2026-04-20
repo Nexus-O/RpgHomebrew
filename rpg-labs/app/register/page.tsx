@@ -558,12 +558,12 @@ export default function RegistroPage() {
         .social-icon {
           font-size: 1.2rem;
         }
-          
+
           .divider {
           display: flex;
           align-items: center;
           text-align: center;
-          margin: 1.5rem 0;
+          margin: 1.0rem 0;
         }
 
         .divider::before,
@@ -575,7 +575,7 @@ export default function RegistroPage() {
 
         .divider span {
           font-family: 'Crimson Pro', serif;
-          font-size: 0.7rem;
+          font-size: 1 rem;
           color: #8a6060;
           padding: 0 0.75rem;
           letter-spacing: 0.1em;
