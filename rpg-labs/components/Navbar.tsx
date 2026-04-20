@@ -180,7 +180,7 @@ export default function Navbar() {
 
             <div className="flex items-center gap-3">
             <a
-              href="https://discord.gg/"
+              href="https://discord.gg/v3dtxpynW4"
               target="_blank"
               rel="noopener noreferrer"
               className="btn-discord"
