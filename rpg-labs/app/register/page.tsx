@@ -558,6 +558,28 @@ export default function RegistroPage() {
         .social-icon {
           font-size: 1.2rem;
         }
+          
+          .divider {
+          display: flex;
+          align-items: center;
+          text-align: center;
+          margin: 1.5rem 0;
+        }
+
+        .divider::before,
+        .divider::after {
+          content: '';
+          flex: 1;
+          border-bottom: 1px solid rgba(100, 20, 20, 0.3);
+        }
+
+        .divider span {
+          font-family: 'Crimson Pro', serif;
+          font-size: 0.7rem;
+          color: #8a6060;
+          padding: 0 0.75rem;
+          letter-spacing: 0.1em;
+        }
 
         /* Loading spinner */
         .loading-spinner {
