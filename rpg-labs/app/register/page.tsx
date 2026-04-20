@@ -805,12 +805,12 @@ export default function RegistroPage() {
             <div style={{ marginTop: "1.5rem", display: "flex", flexDirection: "column", gap: "10px" }}>
   
   <div className="social-login">
-                    <a href="#" id="googleLogin" className="social-btn google">
+                    <button type="button" onClick={handleGoogleLogin} className="social-btn google">
                         <i className="fab fa-google"></i> Continuar com Google
-                    </a>
-                    <a href="#" id="discordLogin" className="social-btn discord">
+                    </button>
+                    <button type="button" onClick={handleDiscordLogin} className="social-btn discord">
                         <i className="fab fa-discord"></i> Continuar com Discord
-                    </a>
+                    </button>
                 </div>
             
 
