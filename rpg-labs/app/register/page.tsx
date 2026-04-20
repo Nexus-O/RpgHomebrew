@@ -528,7 +528,7 @@ export default function RegistroPage() {
           font-weight: 600;
           letter-spacing: 0.15em;
           text-transform: uppercase;
-          gap: 0.75rem;
+          gap: 0.50rem;
           padding: 0.875rem;
           cursor: pointer;
           transition: all 0.3s ease;
