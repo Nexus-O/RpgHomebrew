@@ -44,7 +44,7 @@ export default function Navbar() {
           font-size: 0.72rem;
           letter-spacing: 0.16em;
           color: #999;
-          border: 1px solid #555;
+          border: 1px solid #7289da;
           padding: 6px 16px;
           text-transform: uppercase;
           background: transparent;
