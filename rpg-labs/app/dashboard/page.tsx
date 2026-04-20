@@ -219,20 +219,23 @@ export default function Dashboard() {
       <div className="db-root">
         <aside className="sidebar">
           <div className="sidebar-logo">
-            <span className="logo-name">PURGATUM</span>
+            <span className="logo-name">CONVERGENCIA</span>
             <span className="logo-sub">NEXUS CARMESIN</span>
           </div>
           <nav className="sidebar-nav">
-            {NAV.map((item) => (
-              <button
-                key={item.label}
-                className={`nav-item ${activeNav === item.label ? "active" : ""}`}
-                onClick={() => setActiveNav(item.label)}
-              >
-                <span className="nav-icon">{item.icon}</span>
-                <span className="nav-label">{item.label}</span>
-              </button>
-            ))}
+           {NAV.map((item) => (
+  <button
+    key={item.label}
+    className={`nav-item ${activeNav === item.label ? "active" : ""}`}
+    onClick={() => {
+      setActiveNav(item.label);
+      router.push(item.href);
+    }}
+  >
+    <span className="nav-icon">{item.icon}</span>
+    <span className="nav-label">{item.label}</span>
+  </button>
+))}
           </nav>
           <div className="sidebar-user">
             <img src={user?.photoURL || "/avatar.png"} alt="avatar" className="user-avatar" />
