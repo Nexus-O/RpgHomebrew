@@ -105,13 +105,75 @@ export default function Dashboard() {
           min-height: 100vh;
         }
 
-        /* SIDEBAR */
-        .sidebar {
-          width: 260px;
-          background: #0a0202;
-          border-right: 1px solid rgba(150,30,30,0.3);
-          padding: 2rem 1.5rem;
-        }
+       .sidebar {
+  width: 240px;
+  height: 100vh;
+  background: #0b0615;
+  border-right: 1px solid #2e1065;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 20px;
+}
+
+.sidebar nav {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 30px;
+}
+
+.sidebar nav a {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  border-radius: 8px;
+  color: #c4b5fd;
+  text-decoration: none;
+  transition: 0.3s;
+}
+
+.sidebar nav a:hover {
+  background: #2e1065;
+}
+
+.sidebar nav a.active {
+  background: #5b21b6;
+}
+
+.sidebar nav span {
+  font-size: 18px;
+}
+
+.user-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.user-box img {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  border: 2px solid #7c3aed;
+}
+
+.user-box p {
+  font-size: 0.8rem;
+  color: #ddd;
+}
+
+.user-box button {
+  margin-top: 10px;
+  width: 100%;
+  padding: 8px;
+  background: #7c3aed;
+  border: none;
+  color: white;
+  cursor: pointer;
+}
 
         .logo {
           font-family: 'Cinzel', serif;
@@ -210,18 +272,27 @@ export default function Dashboard() {
       `}</style>
 
       <div className="dashboard">
-        {/* SIDEBAR */}
         <div className="sidebar">
-          <div className="logo">Purgatum</div>
+  <div className="logo">Purgatum</div>
 
-          <div className="menu">
-            <button>Dashboard</button>
-            <button>Personagens</button>
-            <button>Campanhas</button>
-            <button>Inventário</button>
-            <button onClick={handleLogout}>Sair</button>
-          </div>
-        </div>
+  <nav>
+    <a className="active"><span>🏠</span> Dashboard</a>
+    <a><span>🧙</span> Personagens</a>
+    <a><span>📜</span> Campanhas</a>
+    <a><span>🐉</span> Bestiário</a>
+    <a><span>💎</span> Itens</a>
+    <a><span>👤</span> Perfil</a>
+  </nav>
+
+  <div className="user-box">
+    <img src={user?.photoURL || "/avatar.png"} />
+    <p>{user?.displayName || user?.email}</p>
+
+    <button onClick={() => auth.signOut()}>
+      🚪 Sair
+    </button>
+  </div>
+</div>
 
         {/* MAIN */}
         <div className="main">
@@ -245,18 +316,18 @@ export default function Dashboard() {
 
           {/* ATIVIDADE REAL */}
           <div className="activity">
-            <h2>Atividade Recente</h2>
+  <h2>📜 Atividade</h2>
 
-            {activities.length === 0 && (
-              <p>Nenhuma atividade ainda...</p>
-            )}
-
-            {activities.map((act, i) => (
-              <div key={i} className="activity-item">
-                {act.message}
-              </div>
-            ))}
-          </div>
+  {activities.length === 0 ? (
+    <p>Nenhuma atividade ainda...</p>
+  ) : (
+    activities.map((act, i) => (
+      <div key={i} className="activity-item">
+        {act.text}
+      </div>
+    ))
+  )}
+</div>
         </div>
       </div>
     </>
