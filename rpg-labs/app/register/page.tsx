@@ -808,9 +808,7 @@ export default function RegistroPage() {
                     <button type="button" onClick={handleGoogleLogin} className="social-btn google">
                         <i className="fab fa-google"></i> Continuar com Google
                     </button>
-                    /*<button type="button" onClick={handleDiscordLogin} className="social-btn discord">
-                        <i className="fab fa-discord"></i> Continuar com Discord
-                    </button>*/
+                    
                 </div>
             
 
