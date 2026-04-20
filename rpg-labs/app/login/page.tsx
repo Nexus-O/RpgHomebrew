@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 import { auth } from "../firebase";
 import {
   signInWithEmailAndPassword,
-  signInWithPopup,
+  signInWithRedirect,
   GoogleAuthProvider,
   OAuthProvider,
   sendPasswordResetEmail,
@@ -102,7 +102,7 @@ export default function LoginPage() {
   // 🔥 GOOGLE LOGIN
   const handleGoogleLogin = async () => {
     try {
-      await signInWithPopup(auth, googleProvider);
+      await signInWithRedirect(auth, googleProvider);
       router.push("/dashboard");
     } catch (err: any) {
       setErrors({ email: err.message });
@@ -112,7 +112,7 @@ export default function LoginPage() {
   // 🔥 DISCORD LOGIN
   const handleDiscordLogin = async () => {
     try {
-      await signInWithPopup(auth, discordProvider);
+      await signInWithRedirect(auth, discordProvider);
       router.push("/dashboard");
     } catch (err: any) {
       setErrors({ email: err.message });
