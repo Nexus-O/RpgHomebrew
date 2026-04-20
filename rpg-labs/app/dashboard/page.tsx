@@ -108,8 +108,8 @@ export default function Dashboard() {
        .sidebar {
   width: 240px;
   height: 100vh;
-  background: #0b0615;
-  border-right: 1px solid #2e1065;
+  background: #080202;
+  border-right: 1px solid #3a0c0c;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
