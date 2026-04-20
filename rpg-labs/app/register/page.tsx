@@ -523,6 +523,11 @@ export default function RegistroPage() {
             display: flex;
             align-items: center;
             justify-content: center;
+            font-family: 'Cinzel', serif;
+            font-size: 0.85rem;
+            font-weight: 700;
+            letter-spacing: 0.25em;
+            text-transform: uppercase;
             gap: 0.5rem;
             padding: 0.8rem;
             border-radius: 5px;
@@ -803,7 +808,7 @@ export default function RegistroPage() {
               </button>
             </form>
             <div style={{ marginTop: "1.5rem", display: "flex", flexDirection: "column", gap: "10px" }}>
-                                                ou
+                                              
   <div className="social-login">
                     <button type="button" onClick={handleGoogleLogin} className="social-btn google">
                         <i className="fab fa-google"></i> Continuar com Google
