@@ -563,7 +563,7 @@ export default function RegistroPage() {
           display: flex;
           align-items: center;
           text-align: center;
-          margin: 1.0rem 0;
+          margin: 0.7rem 0;
         }
 
         .divider::before,
