@@ -36,36 +36,75 @@ export default function Dashboard() {
   const [activeNav,  setActiveNav]  = useState("Dashboard");
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (u) => {
-      if (!u) { router.push("/login"); return; }
-      setUser(u);
-      await loadData(u.uid);
-      setLoading(false);
+    // ✅ PASSO 1: Checa cache local IMEDIATAMENTE (síncrono, 0ms)
+    // Se o usuário já logou antes, auth.currentUser já está preenchido
+    const cachedUser = auth.currentUser;
+ 
+    if (cachedUser) {
+      // Usuário encontrado no cache — mostra o dashboard na hora
+      setUser(cachedUser);
+      setLoading(false); // <-- sai do loading IMEDIATAMENTE
+      loadData(cachedUser.uid); // carrega dados em background
+    }
+ 
+    // ✅ PASSO 2: Escuta mudanças de auth (cobre primeiro acesso e logout)
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      if (!firebaseUser) {
+        // Não logado — redireciona
+        router.push("/login");
+        return;
+      }
+ 
+      // Atualiza caso o cache estava vazio (primeiro acesso)
+      if (!cachedUser) {
+        setUser(firebaseUser);
+        setLoading(false);
+        loadData(firebaseUser.uid);
+      }
     });
-    return () => unsub();
+ 
+    // Timeout de segurança: se demorar mais de 4s, redireciona pro login
+    const timeout = setTimeout(() => {
+      if (loading) {
+        router.push("/login");
+      }
+    }, 4000);
+ 
+    return () => {
+      unsubscribe();
+      clearTimeout(timeout);
+    };
   }, []);
 
+  const handleLogout = async () => {
+  await auth.signOut();
+  router.push("/login");
+};
+ 
   const loadData = async (uid: string) => {
     try {
-      const charQ = query(collection(db, "characters"), where("userId", "==", uid));
-      const campQ = query(collection(db, "campaigns"), where("members", "array-contains", uid));
-      const actQ  = query(collection(db, "activities"), where("userId", "==", uid), orderBy("createdAt", "desc"), limit(6));
-      const [charSnap, campSnap, actSnap] = await Promise.all([getDocs(charQ), getDocs(campQ), getDocs(actQ)]);
-      setStats({ characters: charSnap.size, campaigns: campSnap.size, sessions: 0, items: 0 });
+      // Roda as 3 queries em paralelo com Promise.all
+      // Em vez de esperar uma por uma (3x mais rápido)
+      const [charSnap, campSnap, actSnap] = await Promise.all([
+        getDocs(query(collection(db, "characters"), where("userId", "==", uid))),
+        getDocs(query(collection(db, "campaigns"),  where("members", "array-contains", uid))),
+        getDocs(query(collection(db, "activities"), where("userId", "==", uid), orderBy("createdAt", "desc"), limit(6))),
+      ]);
+ 
+      setStats({
+  characters: charSnap.size,
+  campaigns:  campSnap.size,
+  sessions:   0,
+  items:      0,
+});
       setActivities(actSnap.docs.map((d) => d.data()));
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      console.error("Erro ao carregar dados:", e);
+    }
   };
-
-  const handleLogout = async () => { await signOut(auth); router.push("/login"); };
-
+ 
+  // Loading só aparece no PRIMEIRO acesso (sem cache)
   if (loading) return (
-    <div style={{ minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", background:"#050101" }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700&display=swap');`}</style>
-      <p style={{ fontFamily:"'Cinzel',serif", color:"#cc1a1a", letterSpacing:"0.3em", fontSize:"0.85rem" }}>CARREGANDO...</p>
-    </div>
-  );
-
-  return (
     <>
       {/* ── Fonts + global ── */}
       <style jsx global>{`
