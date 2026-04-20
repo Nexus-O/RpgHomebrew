@@ -270,37 +270,7 @@ export default function HeroSection() {
         .btn-play .corner-bl { bottom: 3px; left: 3px;  border-width: 0 0 1px 1px; }
         .btn-play .corner-br { bottom: 3px; right: 3px; border-width: 0 1px 1px 0; }
 
-        /* ── Scroll indicator ── */
-        .scroll-hint {
-          position: absolute;
-          bottom: 2rem;
-          left: 50%;
-          transform: translateX(-50%);
-          z-index: 10;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 6px;
-          animation: hero-reveal 1s 1.2s both;
-        }
-        .scroll-hint span {
-          font-family: 'Cinzel', serif;
-          font-size: 0.55rem;
-          letter-spacing: 0.3em;
-          color: var(--text-muted);
-          text-transform: uppercase;
-        }
-        .scroll-chevron {
-          width: 18px;
-          height: 18px;
-          border-right: 1px solid var(--crimson);
-          border-bottom: 1px solid var(--crimson);
-          transform: rotate(45deg);
-          animation: chevron-pulse 1.8s ease-in-out infinite;
-        }
-        @keyframes chevron-pulse {
-          0%, 100% { opacity: 0.3; transform: rotate(45deg) translateY(-3px); }
-          50%       { opacity: 1;   transform: rotate(45deg) translateY(3px);  }
+        
         }
 
         /* ── Tabletop Section ── */
@@ -570,11 +540,6 @@ export default function HeroSection() {
           </Link>
         </div>
 
-        {/* Scroll hint */}
-        <div className="scroll-hint">
-          <span>Descobrir</span>
-          <div className="scroll-chevron" />
-        </div>
       </section>
 
       {/* ══════════ TABLETOP SECTION ══════════ */}
