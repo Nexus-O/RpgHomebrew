@@ -512,6 +512,43 @@ export default function RegistroPage() {
         .corner-bl { bottom: 3px; left: 3px; border-width: 0 0 1px 1px; }
         .corner-br { bottom: 3px; right: 3px; border-width: 0 1px 1px 0; }
 
+        .social-login {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+        
+        .social-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 0.8rem;
+            border-radius: 5px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 1px solid #333;
+            background-color: var(--input-bg);
+            color: var(--light-text);
+            text-decoration: none;
+        }
+        
+        .social-btn:hover {
+            background-color: #222;
+        }
+        
+        .social-btn.google {
+            background-color: #4285F4;
+            border-color: #4285F4;
+        }
+        
+        .social-btn.discord {
+            background-color: #5865F2;
+            border-color: #5865F2;
+        }
+
         /* Loading spinner */
         .loading-spinner {
           width: 16px;
@@ -767,13 +804,15 @@ export default function RegistroPage() {
             </form>
             <div style={{ marginTop: "1.5rem", display: "flex", flexDirection: "column", gap: "10px" }}>
   
-  <button type="button" onClick={handleGoogleLogin} className="btn-registro">
-    Entrar com Google
-  </button>
-
-  <button type="button" onClick={handleDiscordLogin} className="btn-registro">
-    Entrar com Discord
-  </button>
+  <div className="social-login">
+                    <a href="#" id="googleLogin" className="social-btn google">
+                        <i className="fab fa-google"></i> Continuar com Google
+                    </a>
+                    <a href="#" id="discordLogin" className="social-btn discord">
+                        <i className="fab fa-discord"></i> Continuar com Discord
+                    </a>
+                </div>
+            
 
 </div>
 
