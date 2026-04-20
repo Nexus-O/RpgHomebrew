@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+
 import { auth } from "@/lib/firebase";
 
 import {
@@ -14,117 +16,155 @@ import {
 export default function RegisterPage() {
   const router = useRouter();
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [formData, setFormData] = useState({
+    username: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+  });
+
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
 
   // Providers
   const googleProvider = new GoogleAuthProvider();
   const discordProvider = new OAuthProvider("discord.com");
 
-  // ───────────── EMAIL REGISTER ─────────────
-  async function handleRegister(e: React.FormEvent) {
+  // ───────── INPUT ─────────
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: "" }));
+    }
+  };
+
+  // ───────── VALIDAÇÃO ─────────
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {};
+
+    if (!formData.username.trim()) {
+      newErrors.username = "O nome é obrigatório";
+    }
+
+    if (!formData.email.match(/\S+@\S+\.\S+/)) {
+      newErrors.email = "Email inválido";
+    }
+
+    if (formData.password.length < 6) {
+      newErrors.password = "Mínimo 6 caracteres";
+    }
+
+    if (formData.password !== formData.confirmPassword) {
+      newErrors.confirmPassword = "Senhas não coincidem";
+    }
+
+    return newErrors;
+  };
+
+  // ───────── EMAIL REGISTER ─────────
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const newErrors = validateForm();
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+
+    setIsLoading(true);
     setError("");
-    setLoading(true);
 
     try {
-      await createUserWithEmailAndPassword(auth, email, password);
-      router.push("/dashboard"); // muda depois se quiser
+      await createUserWithEmailAndPassword(
+        auth,
+        formData.email,
+        formData.password
+      );
+
+      router.push("/dashboard");
     } catch (err: any) {
       setError(err.message);
     }
 
-    setLoading(false);
-  }
+    setIsLoading(false);
+  };
 
-  // ───────────── GOOGLE LOGIN ─────────────
-  async function handleGoogleLogin() {
-    setError("");
+  // ───────── GOOGLE ─────────
+  const handleGoogleLogin = async () => {
     try {
       await signInWithPopup(auth, googleProvider);
       router.push("/dashboard");
     } catch (err: any) {
       setError(err.message);
     }
-  }
+  };
 
-  // ───────────── DISCORD LOGIN ─────────────
-  async function handleDiscordLogin() {
-    setError("");
+  // ───────── DISCORD ─────────
+  const handleDiscordLogin = async () => {
     try {
       await signInWithPopup(auth, discordProvider);
       router.push("/dashboard");
     } catch (err: any) {
       setError(err.message);
     }
-  }
+  };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-black text-white px-4">
-      <div className="w-full max-w-md bg-zinc-900 p-8 rounded-xl space-y-5 border border-zinc-800">
-        
-        <h1 className="text-2xl font-bold text-center">
-          Criar Conta
-        </h1>
+    <>
+      <div className="registro-container">
 
-        {/* EMAIL FORM */}
-        <form onSubmit={handleRegister} className="space-y-4">
+        {/* ERRO GLOBAL */}
+        {error && (
+          <p style={{ color: "red", textAlign: "center" }}>{error}</p>
+        )}
+
+        <form onSubmit={handleSubmit} className="registro-form">
+
           <input
-            type="email"
+            name="username"
+            placeholder="Nome"
+            onChange={handleChange}
+          />
+
+          <input
+            name="email"
             placeholder="Email"
-            className="w-full p-3 bg-black border border-zinc-700 rounded outline-none"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
+            onChange={handleChange}
           />
 
           <input
             type="password"
+            name="password"
             placeholder="Senha"
-            className="w-full p-3 bg-black border border-zinc-700 rounded outline-none"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
+            onChange={handleChange}
           />
 
-          {error && (
-            <p className="text-red-500 text-sm">{error}</p>
-          )}
+          <input
+            type="password"
+            name="confirmPassword"
+            placeholder="Confirmar senha"
+            onChange={handleChange}
+          />
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-red-700 hover:bg-red-600 p-3 rounded font-bold transition"
-          >
-            {loading ? "Criando..." : "Registrar"}
+          <button type="submit" disabled={isLoading}>
+            {isLoading ? "Carregando..." : "Registrar"}
           </button>
         </form>
 
-        {/* DIVIDER */}
-        <div className="flex items-center gap-2">
-          <div className="flex-1 h-px bg-zinc-700" />
-          <span className="text-sm text-zinc-400">ou</span>
-          <div className="flex-1 h-px bg-zinc-700" />
-        </div>
-
-        {/* GOOGLE */}
-        <button
-          onClick={handleGoogleLogin}
-          className="w-full bg-white text-black p-3 rounded font-bold hover:opacity-90 transition"
-        >
+        {/* LOGIN SOCIAL */}
+        <button onClick={handleGoogleLogin}>
           Entrar com Google
         </button>
 
-        {/* DISCORD */}
-        <button
-          onClick={handleDiscordLogin}
-          className="w-full bg-indigo-600 p-3 rounded font-bold hover:bg-indigo-500 transition"
-        >
+        <button onClick={handleDiscordLogin}>
           Entrar com Discord
         </button>
+
+        <Link href="/">Voltar</Link>
       </div>
-    </div>
+    </>
   );
 }
