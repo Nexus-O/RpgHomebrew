@@ -185,7 +185,7 @@ export default function LoginPage() {
         .login-bg {
           position: absolute;
           inset: 0;
-          background-image: url('/hero-bg.webp');
+          background-image: url('/hero-bg.jpg');
           background-color: #1a0505;
           background-size: cover;
           background-position: center 30%;
