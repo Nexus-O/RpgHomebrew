@@ -162,7 +162,7 @@ export default function Navbar() {
             <img
               src="/logo.png"
               alt="Nexus Carmesin Logo"
-              className="h-14 w-auto object-contain"
+              className="h-16 w-auto object-contain"
             />
             <div className="flex flex-col">
               <span className="brand-text-nexus">N E X U S</span>
