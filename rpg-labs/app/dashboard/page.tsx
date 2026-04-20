@@ -169,7 +169,7 @@ export default function Dashboard() {
   margin-top: 10px;
   width: 100%;
   padding: 8px;
-  background: #7c3aed;
+  background: #3a0c0c;
   border: none;
   color: white;
   cursor: pointer;
