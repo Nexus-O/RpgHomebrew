@@ -9,12 +9,12 @@ import {
 } from "firebase/firestore";
 
 const NAV = [
-  { icon: "⚔️", label: "Dashboard"   },
-  { icon: "🧙", label: "Personagens" },
-  { icon: "📜", label: "Campanhas"   },
-  { icon: "🐉", label: "Bestiário"   },
-  { icon: "💎", label: "Itens"       },
-  { icon: "👤", label: "Perfil"      },
+  { icon: "⚔️", label: "Dashboard",   href: "/dashboard"   },
+  { icon: "🧙", label: "Personagens", href: "/personagens" },
+  { icon: "📜", label: "Campanhas",   href: "/campanhas"   },
+  { icon: "🐉", label: "Bestiário",   href: "/bestiario"   },
+  { icon: "💎", label: "Itens",       href: "/itens"       },
+  { icon: "👤", label: "Perfil",      href: "/perfil"      },
 ];
 
 const STAT_DEFS = [
