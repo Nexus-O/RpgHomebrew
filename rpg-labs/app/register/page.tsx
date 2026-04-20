@@ -563,13 +563,13 @@ export default function RegistroPage() {
           display: flex;
           align-items: center;
           text-align: center;
-          margin: 0.7rem 0;
+          margin: 0.7rem ;
         }
 
         .divider::before,
         .divider::after {
           content: '';
-          flex: 1;
+          flex: 2;
           border-bottom: 1px solid rgba(100, 20, 20, 0.3);
         }
 
@@ -577,7 +577,7 @@ export default function RegistroPage() {
           font-family: 'Crimson Pro', serif;
           font-size: 1 rem;
           color: #8a6060;
-          padding: 0 0.75rem;
+          padding: 0.75rem;
           letter-spacing: 0.1em;
         }
 
