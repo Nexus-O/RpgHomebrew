@@ -20,7 +20,7 @@ export default function Navbar() {
           text-transform: uppercase;
           transition: color 0.25s ease;
           position: relative;
-          padding-bottom: 4px;
+          padding-bottom: -2px;
         }
         .nav-link::after {
           content: '';
