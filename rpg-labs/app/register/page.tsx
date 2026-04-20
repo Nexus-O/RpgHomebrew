@@ -803,7 +803,7 @@ export default function RegistroPage() {
               </button>
             </form>
             <div style={{ marginTop: "1.5rem", display: "flex", flexDirection: "column", gap: "10px" }}>
-  
+                                                ou
   <div className="social-login">
                     <button type="button" onClick={handleGoogleLogin} className="social-btn google">
                         <i className="fab fa-google"></i> Continuar com Google
