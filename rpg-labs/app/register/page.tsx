@@ -4,20 +4,36 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
+// 🔥 Firebase
+import { auth } from "../firebase";
+import {
+  createUserWithEmailAndPassword,
+  signInWithPopup,
+  GoogleAuthProvider,
+  OAuthProvider,
+} from "firebase/auth";
+
 export default function RegistroPage() {
   const router = useRouter();
+
   const [formData, setFormData] = useState({
     username: "",
     email: "",
     password: "",
     confirmPassword: "",
   });
+
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
+
+  // 🔥 Providers
+  const googleProvider = new GoogleAuthProvider();
+  const discordProvider = new OAuthProvider("discord.com");
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: "" }));
     }
@@ -25,49 +41,72 @@ export default function RegistroPage() {
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
-    
+
     if (!formData.username.trim()) {
       newErrors.username = "O nome de usuário é obrigatório";
-    } else if (formData.username.length < 3) {
-      newErrors.username = "O nome deve ter pelo menos 3 caracteres";
     }
-    
+
     if (!formData.email.trim()) {
       newErrors.email = "O email é obrigatório";
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = "Email inválido";
     }
-    
+
     if (!formData.password) {
       newErrors.password = "A senha é obrigatória";
-    } else if (formData.password.length < 6) {
-      newErrors.password = "A senha deve ter pelo menos 6 caracteres";
     }
-    
+
     if (formData.password !== formData.confirmPassword) {
       newErrors.confirmPassword = "As senhas não coincidem";
     }
-    
+
     return newErrors;
   };
 
+  // 🔥 EMAIL REGISTER (Firebase)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
     const newErrors = validateForm();
-    
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
     }
-    
+
     setIsLoading(true);
-    
-    setTimeout(() => {
-      setIsLoading(false);
+
+    try {
+      await createUserWithEmailAndPassword(
+        auth,
+        formData.email,
+        formData.password
+      );
+
       router.push("/dashboard");
-    }, 1500);
+    } catch (err: any) {
+      setErrors({ email: err.message });
+    }
+
+    setIsLoading(false);
   };
 
+  // 🔥 GOOGLE LOGIN
+  const handleGoogleLogin = async () => {
+    try {
+      await signInWithPopup(auth, googleProvider);
+      router.push("/dashboard");
+    } catch (err: any) {
+      setErrors({ email: err.message });
+    }
+  };
+
+  // 🔥 DISCORD LOGIN
+  const handleDiscordLogin = async () => {
+    try {
+      await signInWithPopup(auth, discordProvider);
+      router.push("/dashboard");
+    } catch (err: any) {
+      setErrors({ email: err.message });
+    }
+  };
   return (
     <>
       <style jsx global>{`
@@ -726,6 +765,17 @@ export default function RegistroPage() {
                 </span>
               </button>
             </form>
+            <div style={{ marginTop: "1.5rem", display: "flex", flexDirection: "column", gap: "10px" }}>
+  
+  <button type="button" onClick={handleGoogleLogin} className="btn-registro">
+    Entrar com Google
+  </button>
+
+  <button type="button" onClick={handleDiscordLogin} className="btn-registro">
+    Entrar com Discord
+  </button>
+
+</div>
 
             <div className="login-link">
               <p>
