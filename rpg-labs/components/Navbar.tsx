@@ -160,7 +160,7 @@ export default function Navbar() {
           {/* Logo */}
           <Link href="/" className="flex items-center gap-3 flex-shrink-0">
             <img
-              src="/logo.jpg"
+              src="/logo.png"
               alt="Nexus Carmesin Logo"
               className="h-12 w-auto object-contain"
             />
