@@ -44,7 +44,7 @@ export default function Navbar() {
           font-size: 0.72rem;
           letter-spacing: 0.16em;
           color: #999;
-          border: 1px solid #555;
+          border: 2px solid #7289da;
           padding: 6px 16px;
           text-transform: uppercase;
           background: transparent;
@@ -160,7 +160,7 @@ export default function Navbar() {
           {/* Logo */}
           <Link href="/" className="flex items-center gap-3 flex-shrink-0">
             <img
-              src="/logo-nav.webp"
+              src="/logo.jpg"
               alt="Nexus Carmesin Logo"
               className="h-12 w-auto object-contain"
             />
