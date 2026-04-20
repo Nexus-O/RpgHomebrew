@@ -516,7 +516,7 @@ export default function RegistroPage() {
           display: flex;
           flex-direction: column;
           gap: 1rem;
-          margin-top: 1.5rem;
+          margin-top: 1.8rem;
         }
 
         .social-btn {
