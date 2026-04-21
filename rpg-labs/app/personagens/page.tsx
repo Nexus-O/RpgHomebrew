@@ -9,7 +9,8 @@ import {
   collection, query, where, getDocs,
   addDoc, deleteDoc, doc, serverTimestamp,
 } from "firebase/firestore";
-
+const [selectedSystem, setSelectedSystem] = useState<SistemaKey>("purgatum");
+const [sistema, setSistema] = useState("purgatum");
 type SistemaKey = "purgatum" | "ordem" | "dnd" | "outro";
 const systems: Record<SistemaKey, { atributos: string[] }> = {
   purgatum: { atributos: ["Força", "Agilidade", "Vitalidade", "Corrupção"] },
@@ -42,7 +43,10 @@ type Personagem = {
   descricao: string;
   avatar: string;
   userId: string;
+  atributos: string;
+  foto: string;
 };
+
 
 const AVATARES = ["🧙","⚔️","🏹","🛡️","💀","🔥","❄️","⚡","🌿","🎭"];
 
@@ -61,6 +65,7 @@ export default function PersonagensPage() {
   const [form, setForm] = useState({
     nome: "", classe: CLASSES[0], raca: RACAS[0],
     nivel: 1, descricao: "", avatar: AVATARES[0],
+    atributos: [0], foto: "",
   });
 
   useEffect(() => {
@@ -75,7 +80,7 @@ export default function PersonagensPage() {
   const fetchPersonagens = async (uid: string) => {
     const q = query(collection(db, "characters"), where("userId", "==", uid));
     const snap = await getDocs(q);
-    setPersonagens(snap.docs.map(d => ({ id: d.id, ...d.data() } as Personagem)));
+    setPersonagens(snap.docs.map(d => ({ id: d.id, ...d.data() } as Personagem)));;
   };
 
   const handleSave = async () => {
@@ -87,7 +92,7 @@ export default function PersonagensPage() {
       });
       await fetchPersonagens(user.uid);
       setShowForm(false);
-      setForm({ nome: "", classe: CLASSES[0], raca: RACAS[0], nivel: 1, descricao: "", avatar: AVATARES[0] });
+      setForm({ nome: "", classe: CLASSES[0], raca: RACAS[0], nivel: 1, descricao: "", avatar: AVATARES[0], atributos: [0], foto: "" });
     } catch (e) { console.error(e); }
     setSaving(false);
   };
@@ -470,7 +475,7 @@ export default function PersonagensPage() {
         type="number"
         className="form-input"
         onChange={(e) =>
-          setPersonagem((prev) => ({
+          setForm((prev) => ({
             ...prev,
             atributos: {
               ...prev.atributos,
@@ -493,7 +498,7 @@ export default function PersonagensPage() {
       if (file) {
         const reader = new FileReader();
         reader.onloadend = () => {
-          setPersonagem((prev) => ({
+          setPersonagens((prev) => ({
             ...prev,
             foto: reader.result as string,
           }));
@@ -504,9 +509,9 @@ export default function PersonagensPage() {
   />
 </div>
 
-{personagem.foto && (
+{form.foto && (
   <img
-    src={personagem.foto}
+    src={form.foto}
     className="preview-image"
     alt="preview"
   />
