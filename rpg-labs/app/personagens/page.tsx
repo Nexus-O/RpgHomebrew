@@ -9,6 +9,31 @@ import {
   addDoc, deleteDoc, doc, serverTimestamp,
 } from "firebase/firestore";
 
+const [sistema, setSistema] = useState("purgatum");
+const [personagem, setPersonagem] = useState({
+  nome: "",
+  foto: "",
+  atributos: {},
+  inventario: [],
+});
+
+const sistemas = {
+  purgatum: {
+    atributos: ["Força", "Agilidade", "Resistência", "Vontade", "Corrupção"],
+  },
+  ordem: {
+    atributos: ["Força", "Agilidade", "Intelecto", "Presença", "Vigor"],
+  },
+  dnd: {
+    atributos: ["STR", "DEX", "CON", "INT", "WIS", "CHA"],
+  },
+  outro: {
+    atributos: ["Atributo 1", "Atributo 2"],
+  },
+};
+
+
+
 /* ── Nav (igual ao dashboard) ── */
 const NAV = [
   { icon: "⚔️", label: "Dashboard",   href: "/dashboard"   },
@@ -388,7 +413,22 @@ export default function PersonagensPage() {
 
             {/* Formulário de criação */}
             {showForm && (
-              <div className="form-panel">
+              <>
+                <div className="form-group">
+                  <label className="form-label">Sistema</label>
+                  <select
+                    value={sistema}
+                    onChange={(e) => setSistema(e.target.value)}
+                    className="form-input"
+                  >
+                    <option value="purgatum">Purgatum</option>
+                    <option value="ordem">Ordem Paranormal</option>
+                    <option value="dnd">D&D</option>
+                    <option value="outro">Outro</option>
+                  </select>
+                </div>
+
+                <div className="form-panel">
                 <div className="form-panel-header">
                   <span className="form-panel-title">Forjar Novo Personagem</span>
                   <button className="form-close" onClick={() => setShowForm(false)}>✕</button>
@@ -465,6 +505,7 @@ export default function PersonagensPage() {
                   </button>
                 </div>
               </div>
+              </>
             )}
 
             {/* Grid */}
