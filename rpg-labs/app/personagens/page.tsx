@@ -8,7 +8,7 @@ import {
   collection, query, where, getDocs,
   addDoc, deleteDoc, doc, serverTimestamp,
 } from "firebase/firestore";
-
+const [selectedSystem, setSelectedSystem] = useState<SistemaKey>("purgatum");
 const [sistema, setSistema] = useState("purgatum");
 const [personagem, setPersonagem] = useState({
   nome: "",
@@ -16,20 +16,12 @@ const [personagem, setPersonagem] = useState({
   atributos: {},
   inventario: [],
 });
-
-const sistemas = {
-  purgatum: {
-    atributos: ["Força", "Agilidade", "Resistência", "Vontade", "Corrupção"],
-  },
-  ordem: {
-    atributos: ["Força", "Agilidade", "Intelecto", "Presença", "Vigor"],
-  },
-  dnd: {
-    atributos: ["STR", "DEX", "CON", "INT", "WIS", "CHA"],
-  },
-  outro: {
-    atributos: ["Atributo 1", "Atributo 2"],
-  },
+type SistemaKey = "purgatum" | "ordem" | "dnd" | "outro";
+const systems: Record<SistemaKey, { atributos: string[] }> = {
+  purgatum: { atributos: ["Força", "Agilidade", "Vitalidade", "Corrupção"] },
+  ordem: { atributos: ["Força", "Agilidade", "Intelecto", "Presença"] },
+  dnd: { atributos: ["STR", "DEX", "CON", "INT", "WIS", "CHA"] },
+  outro: { atributos: ["Atributo 1", "Atributo 2"] },
 };
 
 
@@ -354,6 +346,19 @@ export default function PersonagensPage() {
         .empty-icon{font-size:3.5rem;margin-bottom:1.5rem;opacity:0.3;}
         .empty-title{font-family:'Cinzel',serif;font-size:1rem;letter-spacing:0.2em;color:#5a3a3a;margin-bottom:0.5rem;}
         .empty-sub{font-family:'Crimson Pro',serif;font-size:0.9rem;color:#3a2020;font-style:italic;}
+      
+      .atributos-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+}
+
+.preview-image {
+  width: 100%;
+  max-width: 200px;
+  border: 2px solid #6a0dad;
+  margin-top: 10px;
+}
       `}</style>
 
       <div className="root">
@@ -463,28 +468,55 @@ export default function PersonagensPage() {
                   </div>
 
                   {/* Nível */}
-                  <div className="form-group">
-                    <label className="form-label">Nível</label>
-                    <div className="nivel-input">
-                      <button className="nivel-btn" onClick={() => setForm(p => ({ ...p, nivel: Math.max(1, p.nivel - 1) }))}>−</button>
-                      <span className="nivel-val">{form.nivel}</span>
-                      <button className="nivel-btn" onClick={() => setForm(p => ({ ...p, nivel: Math.min(20, p.nivel + 1) }))}>+</button>
-                    </div>
-                  </div>
+                  <div className="atributos-grid">
+  {systems[selectedSystem].atributos.map((attr) => (
+    <div key={attr} className="form-group">
+      <label className="form-label">{attr}</label>
+      <input
+        type="number"
+        className="form-input"
+        onChange={(e) =>
+          setPersonagem((prev) => ({
+            ...prev,
+            atributos: {
+              ...prev.atributos,
+              [attr]: Number(e.target.value),
+            },
+          }))
+        }
+      />
+    </div>
+  ))}
+</div>
 
-                  {/* Avatar */}
                   <div className="form-group">
-                    <label className="form-label">Avatar</label>
-                    <div className="avatar-picker">
-                      {AVATARES.map(a => (
-                        <button
-                          key={a}
-                          className={`avatar-opt ${form.avatar === a ? "selected" : ""}`}
-                          onClick={() => setForm(p => ({ ...p, avatar: a }))}
-                        >{a}</button>
-                      ))}
-                    </div>
-                  </div>
+  <label className="form-label">Retrato do Personagem</label>
+  <input
+    type="file"
+    accept="image/*"
+    onChange={(e) => {
+      const file = e.target.files?.[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setPersonagem((prev) => ({
+            ...prev,
+            foto: reader.result as string,
+          }));
+        };
+        reader.readAsDataURL(file);
+      }
+    }}
+  />
+</div>
+
+{personagem.foto && (
+  <img
+    src={personagem.foto}
+    className="preview-image"
+    alt="preview"
+  />
+)}
 
                   {/* Descrição */}
                   <div className="form-group full">
