@@ -1,5 +1,6 @@
 "use client";
 export const dynamic = "force-dynamic";
+export const ssr = false;
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
