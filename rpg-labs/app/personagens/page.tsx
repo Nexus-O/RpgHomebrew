@@ -9,14 +9,7 @@ import {
   collection, query, where, getDocs,
   addDoc, deleteDoc, doc, serverTimestamp,
 } from "firebase/firestore";
-const [selectedSystem, setSelectedSystem] = useState<SistemaKey>("purgatum");
-const [sistema, setSistema] = useState("purgatum");
-const [personagem, setPersonagem] = useState({
-  nome: "",
-  foto: "",
-  atributos: {},
-  inventario: [],
-});
+
 type SistemaKey = "purgatum" | "ordem" | "dnd" | "outro";
 const systems: Record<SistemaKey, { atributos: string[] }> = {
   purgatum: { atributos: ["Força", "Agilidade", "Vitalidade", "Corrupção"] },
