@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { getFirebaseAdminAuth } from "@/lib/firebase-admin";
+import { createFirebaseCustomToken } from "@/lib/firebase-admin";
 
 // Essa rota depende de uma requisição real (sessão do usuário) e nunca deve
 // ser pré-renderizada/coletada durante o build — isso evitaria inicializar
@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
 
     // uid do Firebase = uid do Supabase, assim os dois sistemas ficam
     // sempre alinhados (mesmo "dono" nos documentos do Firestore).
-    const firebaseCustomToken = await getFirebaseAdminAuth().createCustomToken(
+    const firebaseCustomToken = createFirebaseCustomToken(
       supabaseUser.id,
       {
         // Claims extras úteis para Security Rules, se precisar no futuro.
