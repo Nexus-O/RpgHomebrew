@@ -4,15 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Icon from "../../components/Icon";
-
-// 🔥 Firebase
-import { auth } from "../firebase";
-import {
-  createUserWithEmailAndPassword,
-  signInWithPopup,
-  GoogleAuthProvider,
-  OAuthProvider,
-} from "firebase/auth";
+import { supabase } from "@/lib/supabase/client";
+import { syncFirebaseWithSupabaseSession } from "@/lib/sync-firebase-session";
 
 export default function RegistroPage() {
   const router = useRouter();
@@ -26,10 +19,7 @@ export default function RegistroPage() {
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
-
-  // 🔥 Providers
-  const googleProvider = new GoogleAuthProvider();
-  const discordProvider = new OAuthProvider("discord.com");
+  const [registeredEmail, setRegisteredEmail] = useState<string | null>(null);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -62,7 +52,7 @@ export default function RegistroPage() {
     return newErrors;
   };
 
-  // 🔥 EMAIL REGISTER (Firebase)
+  // Registro com email/senha (Supabase Auth)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -74,38 +64,62 @@ export default function RegistroPage() {
 
     setIsLoading(true);
 
-    try {
-      await createUserWithEmailAndPassword(
-        auth,
-        formData.email,
-        formData.password
-      );
+    const { data, error } = await supabase.auth.signUp({
+      email: formData.email,
+      password: formData.password,
+      options: {
+        data: { username: formData.username },
+        emailRedirectTo: `${window.location.origin}/login`,
+      },
+    });
 
+    if (error) {
+      setErrors({ email: error.message });
+      setIsLoading(false);
+      return;
+    }
+
+    // Se a confirmação de email estiver ativa, data.session vem nulo
+    // até o usuário clicar no link recebido por email.
+    if (!data.session) {
+      setRegisteredEmail(formData.email);
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      await syncFirebaseWithSupabaseSession();
       router.push("/dashboard");
-    } catch (err: any) {
-      setErrors({ email: err.message });
+    } catch (err) {
+      setErrors({ email: err instanceof Error ? err.message : "Erro ao sincronizar sessão." });
     }
 
     setIsLoading(false);
   };
 
-  // 🔥 GOOGLE LOGIN
+  // Login social (Google/Discord) — Supabase redireciona e volta para /login,
+  // que finaliza a sincronização com o Firebase.
   const handleGoogleLogin = async () => {
-    try {
-      await signInWithPopup(auth, googleProvider);
-      router.push("/dashboard");
-    } catch (err: any) {
-      setErrors({ email: err.message });
+    setIsLoading(true);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: `${window.location.origin}/login` },
+    });
+    if (error) {
+      setErrors({ email: error.message });
+      setIsLoading(false);
     }
   };
 
-  // 🔥 DISCORD LOGIN
   const handleDiscordLogin = async () => {
-    try {
-      await signInWithPopup(auth, discordProvider);
-      router.push("/dashboard");
-    } catch (err: any) {
-      setErrors({ email: err.message });
+    setIsLoading(true);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "discord",
+      options: { redirectTo: `${window.location.origin}/login` },
+    });
+    if (error) {
+      setErrors({ email: error.message });
+      setIsLoading(false);
     }
   };
   return (
@@ -718,6 +732,18 @@ export default function RegistroPage() {
               </p>
             </div>
 
+            {registeredEmail ? (
+              <div className="confirm-email-box" style={{ textAlign: "center", padding: "1rem 0" }}>
+                <div className="seal-icon"><Icon name="campanhas" /></div>
+                <p style={{ marginTop: "1rem" }}>
+                  Enviamos um corvo mensageiro para <strong>{registeredEmail}</strong>.
+                  Abra o link recebido para confirmar seu pacto e poder entrar no Nexus.
+                </p>
+                <div className="login-link" style={{ marginTop: "1.5rem" }}>
+                  <Link href="/login" className="link-highlight">Voltar para o login</Link>
+                </div>
+              </div>
+            ) : (
             <form onSubmit={handleSubmit} className="registro-form">
               <div className="form-group">
                 <label htmlFor="username" className="form-label">
@@ -835,6 +861,9 @@ export default function RegistroPage() {
                 </span>
               </button>
             </form>
+            )}
+
+            {!registeredEmail && (
             <div style={{ marginTop: "1.5rem", display: "flex", flexDirection: "column", gap: "10px" }}>
                                               
   <div className="divider">
@@ -851,11 +880,21 @@ export default function RegistroPage() {
                 <span className="social-icon">G</span>
                 Continuar com Google
               </button>
+              <button
+                type="button"
+                onClick={handleDiscordLogin}
+                className="social-btn discord"
+                disabled={isLoading}
+              >
+                <span className="social-icon">D</span>
+                Continuar com Discord
+              </button>
               
             </div>
             
 
 </div>
+            )}
 
             <div className="login-link">
               <p>

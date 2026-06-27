@@ -4,16 +4,8 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Icon from "../../components/Icon";
-
-// 🔥 Firebase
-import { auth } from "../firebase";
-import {
-  signInWithEmailAndPassword,
-  signInWithRedirect,
-  GoogleAuthProvider,
-  sendPasswordResetEmail,
-  getRedirectResult,
-} from "firebase/auth";
+import { supabase } from "@/lib/supabase/client";
+import { syncFirebaseWithSupabaseSession } from "@/lib/sync-firebase-session";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -23,25 +15,26 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [resetMessage, setResetMessage] = useState("");
 
-  const googleProvider = new GoogleAuthProvider();
-
-  // ✅ getRedirectResult DENTRO do useEffect — captura o retorno do Google
+  // Captura tanto o login normal quanto o retorno de OAuth (Google/Discord),
+  // que o Supabase resolve via evento de mudança de sessão, não via uma
+  // chamada manual de "getRedirectResult" como no Firebase.
   useEffect(() => {
-    setIsLoading(true);
-    getRedirectResult(auth)
-      .then((result) => {
-        if (result?.user) {
-          router.push("/dashboard");
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (event === "SIGNED_IN" && session) {
+          setIsLoading(true);
+          try {
+            await syncFirebaseWithSupabaseSession();
+            router.push("/dashboard");
+          } catch (err) {
+            setErrors({ email: err instanceof Error ? err.message : "Erro ao sincronizar sessão." });
+            setIsLoading(false);
+          }
         }
-      })
-      .catch((err) => {
-        console.error("Erro no redirect:", err);
-        setErrors({ email: err.message });
-      })
-      .finally(() => {
-        setIsLoading(false);
-      });
-  }, []);
+      }
+    );
+    return () => listener.subscription.unsubscribe();
+  }, [router]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -57,56 +50,72 @@ export default function LoginPage() {
     return newErrors;
   };
 
-  // 🔥 EMAIL LOGIN
+  // Login com email/senha (Supabase Auth)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const newErrors = validateForm();
     if (Object.keys(newErrors).length > 0) { setErrors(newErrors); return; }
 
     setIsLoading(true);
-    try {
-      await signInWithEmailAndPassword(auth, formData.email, formData.password);
-      router.push("/dashboard");
-    } catch (err: any) {
+    const { error } = await supabase.auth.signInWithPassword({
+      email: formData.email,
+      password: formData.password,
+    });
+
+    if (error) {
       const map: Record<string, string> = {
-        "auth/user-not-found":   "Usuário não encontrado",
-        "auth/wrong-password":   "Senha incorreta",
-        "auth/invalid-email":    "Email inválido",
-        "auth/too-many-requests":"Muitas tentativas. Tente mais tarde",
+        "Invalid login credentials": "Email ou senha incorretos",
+        "Email not confirmed": "Confirme seu email antes de entrar (verifique sua caixa de entrada)",
       };
-      setErrors({ email: map[err.code] ?? err.message });
+      setErrors({ email: map[error.message] ?? error.message });
+      setIsLoading(false);
+      return;
     }
-    setIsLoading(false);
+
+    // onAuthStateChange (acima) detecta o SIGNED_IN e termina o fluxo,
+    // sincronizando com o Firebase e navegando para o dashboard.
   };
 
-  // 🔥 GOOGLE LOGIN
+  // Login social — o retorno é tratado pelo onAuthStateChange acima
   const handleGoogleLogin = async () => {
-    try {
-      await signInWithRedirect(auth, googleProvider);
-      // O redirect leva o usuário para fora — o getRedirectResult no useEffect
-      // cuida do retorno automaticamente
-    } catch (err: any) {
-      setErrors({ email: err.message });
+    setIsLoading(true);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: `${window.location.origin}/login` },
+    });
+    if (error) {
+      setErrors({ email: error.message });
+      setIsLoading(false);
     }
   };
 
-  // 🔥 RESET PASSWORD
+  const handleDiscordLogin = async () => {
+    setIsLoading(true);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "discord",
+      options: { redirectTo: `${window.location.origin}/login` },
+    });
+    if (error) {
+      setErrors({ email: error.message });
+      setIsLoading(false);
+    }
+  };
+
+  // Recuperação de senha (Supabase Auth)
   const handleResetPassword = async () => {
     if (!formData.email) {
       setErrors({ email: "Digite seu email para recuperar a senha" });
       return;
     }
     setIsLoading(true);
-    try {
-      await sendPasswordResetEmail(auth, formData.email);
+    const { error } = await supabase.auth.resetPasswordForEmail(formData.email, {
+      redirectTo: `${window.location.origin}/login`,
+    });
+    if (error) {
+      setErrors({ email: error.message });
+    } else {
       setResetMessage("Email de recuperação enviado! Verifique sua caixa de entrada.");
       setErrors({});
-    } catch (err: any) {
-      const map: Record<string, string> = {
-        "auth/user-not-found": "Usuário não encontrado",
-        "auth/invalid-email":  "Email inválido",
-      };
-      setErrors({ email: map[err.code] ?? err.message });
     }
     setIsLoading(false);
   };
@@ -324,6 +333,7 @@ export default function LoginPage() {
         }
         .social-btn:hover { transform: translateY(-2px); border-color: #cc1a1a; }
         .social-btn.google:hover  { background:#4285F4; border-color:#4285F4; color:#fff; }
+        .social-btn.discord:hover { background:#5865F2; border-color:#5865F2; color:#fff; }
         .social-icon { font-size:1.2rem; }
 
         .loading-spinner { width:16px; height:16px; border:2px solid rgba(255,255,255,0.3); border-top-color:#fff; border-radius:50%; animation:spin 0.8s linear infinite; }
@@ -428,6 +438,10 @@ export default function LoginPage() {
               <button type="button" onClick={handleGoogleLogin} className="social-btn google" disabled={isLoading}>
                 <span className="social-icon">G</span>
                 Continuar com Google
+              </button>
+              <button type="button" onClick={handleDiscordLogin} className="social-btn discord" disabled={isLoading}>
+                <span className="social-icon">D</span>
+                Continuar com Discord
               </button>
             </div>
 
