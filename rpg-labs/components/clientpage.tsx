@@ -4,12 +4,12 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "../app/firebase";
+import Icon, { ICONS, type IconName } from "./Icon";
 import {
   collection, query, where, getDocs,
   addDoc, deleteDoc, doc, serverTimestamp,
 } from "firebase/firestore";
-const [selectedSystem, setSelectedSystem] = useState<SistemaKey>("purgatum");
-const [sistema, setSistema] = useState("purgatum");
+
 type SistemaKey = "purgatum" | "ordem" | "dnd" | "outro";
 const systems: Record<SistemaKey, { atributos: string[] }> = {
   purgatum: { atributos: ["Força", "Agilidade", "Vitalidade", "Corrupção"] },
@@ -21,13 +21,13 @@ const systems: Record<SistemaKey, { atributos: string[] }> = {
 
 
 /* ── Nav (igual ao dashboard) ── */
-const NAV = [
-  { icon: "⚔️", label: "Dashboard",   href: "/dashboard"   },
-  { icon: "🧙", label: "Personagens", href: "/personagens" },
-  { icon: "📜", label: "Campanhas",   href: "/campanhas"   },
-  { icon: "🐉", label: "Bestiário",   href: "/bestiario"   },
-  { icon: "💎", label: "Itens",       href: "/itens"       },
-  { icon: "👤", label: "Perfil",      href: "/perfil"      },
+const NAV: { icon: IconName; label: string; href: string }[] = [
+  { icon: "dashboard",   label: "Dashboard",   href: "/dashboard"   },
+  { icon: "personagens", label: "Personagens", href: "/personagens" },
+  { icon: "campanhas",   label: "Campanhas",   href: "/campanhas"   },
+  { icon: "bestiario",   label: "Bestiário",   href: "/bestiario"   },
+  { icon: "itens",       label: "Itens",       href: "/itens"       },
+  { icon: "perfil",      label: "Perfil",      href: "/perfil"      },
 ];
 
 const CLASSES = ["Guerreiro","Mago","Ladino","Clérigo","Paladino","Bárbaro","Druida","Arqueiro","Necromante","Bardo"];
@@ -46,8 +46,25 @@ type Personagem = {
   foto: string;
 };
 
+/* Avatares disponíveis para seleção — usam ícones de fantasia (RPG-Awesome) */
+const AVATARES: IconName[] = [
+  "avatarMago", "avatarGuerreiro", "avatarArqueiro", "avatarGuardiao",
+  "avatarNecromante", "avatarFogo", "avatarGelo", "avatarRaio",
+  "avatarDruida", "avatarBardo",
+];
 
-const AVATARES = ["🧙","⚔️","🏹","🛡️","💀","🔥","❄️","⚡","🌿","🎭"];
+/**
+ * Renderiza o avatar de um personagem.
+ * Compatível com personagens antigos (avatar salvo como emoji) e novos
+ * (avatar salvo como nome de ícone, ex: "avatarMago").
+ */
+function renderAvatar(avatar: string | undefined, size = "4rem") {
+  if (avatar && avatar in ICONS) {
+    return <Icon name={avatar as IconName} style={{ fontSize: size }} />;
+  }
+  // fallback para dados antigos salvos como emoji, ou personagem sem avatar
+  return <span style={{ fontSize: size }}>{avatar || <Icon name="avatarMago" style={{ fontSize: size }} />}</span>;
+}
 
 export default function PersonagensPage() {
   const router = useRouter();
@@ -56,6 +73,8 @@ export default function PersonagensPage() {
   const [personagens,  setPersonagens]  = useState<Personagem[]>([]);
   const [sideOpen,     setSideOpen]     = useState(false);
   const [activeNav,    setActiveNav]    = useState("Personagens");
+  const [selectedSystem, setSelectedSystem] = useState<SistemaKey>("purgatum");
+  const [sistema, setSistema] = useState("purgatum");
   const [showForm,     setShowForm]     = useState(false);
   const [saving,       setSaving]       = useState(false);
   const [deletingId,   setDeletingId]   = useState<string | null>(null);
@@ -67,6 +86,12 @@ export default function PersonagensPage() {
     atributos: [0], foto: "",
   });
 
+  const fetchPersonagens = async (uid: string) => {
+    const q = query(collection(db, "characters"), where("userId", "==", uid));
+    const snap = await getDocs(q);
+    setPersonagens(snap.docs.map(d => ({ id: d.id, ...d.data() } as Personagem)));
+  };
+
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
       if (u) { setUser(u); fetchPersonagens(u.uid); }
@@ -75,12 +100,6 @@ export default function PersonagensPage() {
     });
     return () => unsub();
   }, []);
-
-  const fetchPersonagens = async (uid: string) => {
-    const q = query(collection(db, "characters"), where("userId", "==", uid));
-    const snap = await getDocs(q);
-    setPersonagens(snap.docs.map(d => ({ id: d.id, ...d.data() } as Personagem)));;
-  };
 
   const handleSave = async () => {
     if (!form.nome.trim()) return;
@@ -373,7 +392,7 @@ export default function PersonagensPage() {
                 className={`nav-item ${activeNav === item.label ? "active" : ""}`}
                 onClick={() => { setActiveNav(item.label); router.push(item.href); }}
               >
-                <span className="nav-icon">{item.icon}</span>
+                <span className="nav-icon"><Icon name={item.icon} /></span>
                 <span className="nav-label">{item.label}</span>
               </button>
             ))}
@@ -384,7 +403,7 @@ export default function PersonagensPage() {
               <span className="user-name">{user?.displayName || user?.email?.split("@")[0]}</span>
               <span className="user-role">Aventureiro</span>
             </div>
-            <button className="logout-btn" onClick={() => { auth.signOut(); router.push("/login"); }} title="Sair">⬡</button>
+            <button className="logout-btn" onClick={() => { auth.signOut(); router.push("/login"); }} title="Sair"><Icon name="sair" /></button>
           </div>
         </aside>
 
@@ -393,7 +412,7 @@ export default function PersonagensPage() {
         {/* ── Main ── */}
         <div className="main">
           <header className="topbar">
-            <span className="topbar-title">◈ Personagens</span>
+            <span className="topbar-title"><Icon name="pingente" /> Personagens</span>
             <div className="topbar-right">
               <button className="hamburger" onClick={() => setSideOpen(v => !v)} aria-label="Menu">
                 <span /><span /><span />
@@ -410,7 +429,7 @@ export default function PersonagensPage() {
                 <div className="section-divider" />
               </div>
               <button className="btn-new" onClick={() => setShowForm(v => !v)}>
-                {showForm ? "✕ Cancelar" : "+ Novo Personagem"}
+                {showForm ? <><Icon name="fechar" /> Cancelar</> : "+ Novo Personagem"}
               </button>
             </div>
 
@@ -434,7 +453,7 @@ export default function PersonagensPage() {
                 <div className="form-panel">
                 <div className="form-panel-header">
                   <span className="form-panel-title">Forjar Novo Personagem</span>
-                  <button className="form-close" onClick={() => setShowForm(false)}>✕</button>
+                  <button className="form-close" onClick={() => setShowForm(false)}><Icon name="fechar" /></button>
                 </div>
 
                 <div className="form-grid">
@@ -463,6 +482,24 @@ export default function PersonagensPage() {
                     <select className="form-select" value={form.raca} onChange={e => setForm(p => ({ ...p, raca: e.target.value }))}>
                       {RACAS.map(r => <option key={r} value={r}>{r}</option>)}
                     </select>
+                  </div>
+
+                  {/* Avatar */}
+                  <div className="form-group full">
+                    <label className="form-label">Avatar</label>
+                    <div className="avatar-picker">
+                      {AVATARES.map(a => (
+                        <button
+                          type="button"
+                          key={a}
+                          className={`avatar-opt ${form.avatar === a ? "selected" : ""}`}
+                          onClick={() => setForm(p => ({ ...p, avatar: a }))}
+                          title={a}
+                        >
+                          <Icon name={a} />
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
                   {/* Nível */}
@@ -541,7 +578,7 @@ export default function PersonagensPage() {
             {/* Grid */}
             {personagens.length === 0 && !showForm ? (
               <div className="empty-state">
-                <div className="empty-icon">🧙</div>
+                <div className="empty-icon"><Icon name="avatarMago" /></div>
                 <p className="empty-title">Nenhum personagem ainda</p>
                 <p className="empty-sub">Clique em "Novo Personagem" para forjar seu primeiro herói</p>
               </div>
@@ -555,7 +592,7 @@ export default function PersonagensPage() {
                     onClick={() => setSelectedChar(p)}
                   >
                     <div className="char-avatar-area">
-                      <span style={{ fontSize: "4rem" }}>{p.avatar || "🧙"}</span>
+                      {renderAvatar(p.avatar)}
                       <span className="char-nivel-badge">Nível {p.nivel}</span>
                     </div>
                     <div className="char-body">
@@ -568,7 +605,7 @@ export default function PersonagensPage() {
                       onClick={e => { e.stopPropagation(); handleDelete(p.id); }}
                       disabled={deletingId === p.id}
                     >
-                      {deletingId === p.id ? "..." : "✕"}
+                      {deletingId === p.id ? "..." : <Icon name="fechar" />}
                     </button>
                   </div>
                 ))}
@@ -589,8 +626,8 @@ export default function PersonagensPage() {
         <div className="modal-overlay" onClick={() => setSelectedChar(null)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
             <div className="modal-top-line" />
-            <button className="modal-close" onClick={() => setSelectedChar(null)}>✕ Fechar</button>
-            <div className="modal-avatar">{selectedChar.avatar || "🧙"}</div>
+            <button className="modal-close" onClick={() => setSelectedChar(null)}><Icon name="fechar" /> Fechar</button>
+            <div className="modal-avatar">{renderAvatar(selectedChar.avatar)}</div>
             <div className="modal-body">
               <div className="modal-name">{selectedChar.nome}</div>
               <div className="modal-meta">{selectedChar.classe} · {selectedChar.raca} · Nível {selectedChar.nivel}</div>

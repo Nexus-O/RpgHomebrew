@@ -2,28 +2,29 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import Icon, { type IconName } from "./Icon";
 
 /* ─────────────────────────────────────────────
    Tabletop feature card data
 ───────────────────────────────────────────── */
-const features = [
+const features: { icon: IconName; title: string; desc: string }[] = [
   {
-    icon: "⚔️",
+    icon: "dashboard",
     title: "Fichas Personalizáveis",
     desc: "Crie e edite fichas de personagem completas com atributos, habilidades e histórico — tudo sincronizado em tempo real.",
   },
   {
-    icon: "🗺️",
+    icon: "mapa",
     title: "Mapas & Cenários",
     desc: "Monte batalhas táticas com tiles dinâmicos, névoa de guerra e iluminação dramática diretamente no navegador.",
   },
   {
-    icon: "🎲",
+    icon: "dados",
     title: "Rolagem de Dados",
     desc: "Sistema de dados integrado com histórico, modificadores e animações físicas — d4 ao d100.",
   },
   {
-    icon: "📡",
+    icon: "transmitir",
     title: "Retransmissão ao Vivo",
     desc: "Transmita suas sessões diretamente para o Twitch ou YouTube com overlay automático da mesa e câmeras dos jogadores.",
   },
@@ -565,7 +566,7 @@ export default function HeroSection() {
                 key={f.title}
                 className={`feature-card reveal reveal-delay-${i + 1} ${tabletopReveal.visible ? "visible" : ""}`}
               >
-                <span className="feature-icon">{f.icon}</span>
+                <span className="feature-icon"><Icon name={f.icon} /></span>
                 <h3 className="feature-title">{f.title}</h3>
                 <p className="feature-desc">{f.desc}</p>
               </div>

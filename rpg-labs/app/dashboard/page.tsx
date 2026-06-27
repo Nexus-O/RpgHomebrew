@@ -4,24 +4,25 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "../firebase";
+import Icon, { type IconName } from "../../components/Icon";
 import {
   collection, query, where, getDocs, orderBy, limit,
 } from "firebase/firestore";
 
-const NAV = [
-  { icon: "⚔️", label: "Dashboard",   href: "/dashboard"   },
-  { icon: "🧙", label: "Personagens", href: "/personagens" },
-  { icon: "📜", label: "Campanhas",   href: "/campanhas"   },
-  { icon: "🐉", label: "Bestiário",   href: "/bestiario"   },
-  { icon: "💎", label: "Itens",       href: "/itens"       },
-  { icon: "👤", label: "Perfil",      href: "/perfil"      },
+const NAV: { icon: IconName; label: string; href: string }[] = [
+  { icon: "dashboard",    label: "Dashboard",   href: "/dashboard"   },
+  { icon: "personagens",  label: "Personagens", href: "/personagens" },
+  { icon: "campanhas",    label: "Campanhas",   href: "/campanhas"   },
+  { icon: "bestiario",    label: "Bestiário",   href: "/bestiario"   },
+  { icon: "itens",        label: "Itens",       href: "/itens"       },
+  { icon: "perfil",       label: "Perfil",      href: "/perfil"      },
 ];
 
-const STAT_DEFS = [
-  { key: "characters", label: "Personagens", icon: "🧙", color: "#cc1a1a" },
-  { key: "campaigns",  label: "Campanhas",   icon: "📜", color: "#c9a84c" },
-  { key: "sessions",   label: "Sessões",     icon: "🎲", color: "#4c8bc9" },
-  { key: "items",      label: "Itens",       icon: "💎", color: "#4cc97a" },
+const STAT_DEFS: { key: string; label: string; icon: IconName; color: string }[] = [
+  { key: "characters", label: "Personagens", icon: "personagens", color: "#cc1a1a" },
+  { key: "campaigns",  label: "Campanhas",   icon: "campanhas",   color: "#c9a84c" },
+  { key: "sessions",   label: "Sessões",     icon: "dados",       color: "#4c8bc9" },
+  { key: "items",      label: "Itens",       icon: "itens",       color: "#4cc97a" },
 ];
 
 export default function Dashboard() {
@@ -232,7 +233,7 @@ export default function Dashboard() {
       router.push(item.href);
     }}
   >
-    <span className="nav-icon">{item.icon}</span>
+    <span className="nav-icon"><Icon name={item.icon} /></span>
     <span className="nav-label">{item.label}</span>
   </button>
 ))}
@@ -243,7 +244,7 @@ export default function Dashboard() {
               <span className="user-name">{user?.displayName || user?.email?.split("@")[0]}</span>
               <span className="user-role">Aventureiro</span>
             </div>
-            <button className="logout-btn" onClick={handleLogout} title="Sair">⬡</button>
+            <button className="logout-btn" onClick={handleLogout} title="Sair"><Icon name="sair" /></button>
           </div>
         </aside>
 
@@ -251,7 +252,7 @@ export default function Dashboard() {
 
         <div className="main">
           <header className="topbar">
-            <span className="topbar-title">◈ Painel de Controle</span>
+            <span className="topbar-title"><Icon name="pingente" /> Painel de Controle</span>
             <div className="topbar-right">
               <span className="topbar-email">{user?.email}</span>
               <button className="hamburger" onClick={() => setSideOpen(v => !v)} aria-label="Menu">
@@ -274,7 +275,7 @@ export default function Dashboard() {
             <div className="stats-grid">
               {STAT_DEFS.map((s) => (
                 <div key={s.key} className="stat-card" style={{ "--accent": s.color } as React.CSSProperties}>
-                  <span className="stat-icon">{s.icon}</span>
+                  <span className="stat-icon"><Icon name={s.icon} /></span>
                   <div className="stat-value">{(stats as any)[s.key] ?? 0}</div>
                   <div className="stat-label">{s.label}</div>
                   <div className="stat-bar" />
@@ -308,14 +309,14 @@ export default function Dashboard() {
                 </div>
                 <div className="quick-list">
                   {[
-                    { icon: "⚔️", label: "Novo Personagem" },
-                    { icon: "📜", label: "Criar Campanha"  },
-                    { icon: "🎲", label: "Rolar Dados"     },
-                    { icon: "🗺️", label: "Abrir Mapa"      },
-                    { icon: "📡", label: "Transmitir Mesa" },
+                    { icon: "dashboard" as IconName,   label: "Novo Personagem" },
+                    { icon: "campanhas" as IconName,   label: "Criar Campanha"  },
+                    { icon: "dados" as IconName,       label: "Rolar Dados"     },
+                    { icon: "mapa" as IconName,        label: "Abrir Mapa"      },
+                    { icon: "transmitir" as IconName,  label: "Transmitir Mesa" },
                   ].map((a) => (
                     <button key={a.label} className="quick-btn">
-                      <span className="quick-btn-icon">{a.icon}</span>
+                      <span className="quick-btn-icon"><Icon name={a.icon} /></span>
                       {a.label}
                     </button>
                   ))}

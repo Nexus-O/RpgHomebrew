@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import Icon from "../../components/Icon";
 
 // 🔥 Firebase
 import { auth } from "../firebase";
@@ -374,7 +375,7 @@ export default function LoginPage() {
               <div className="form-group">
                 <label htmlFor="email" className="form-label">Corvo Mensageiro (Email)</label>
                 <div className="input-wrapper">
-                  <span className="input-icon">📜</span>
+                  <span className="input-icon"><Icon name="usuario" /></span>
                   <input
                     type="email" id="email" name="email"
                     value={formData.email} onChange={handleChange}
@@ -388,7 +389,7 @@ export default function LoginPage() {
               <div className="form-group">
                 <label htmlFor="password" className="form-label">Palavra Secreta</label>
                 <div className="input-wrapper">
-                  <span className="input-icon">🔒</span>
+                  <span className="input-icon"><Icon name="senha" /></span>
                   <input
                     type="password" id="password" name="password"
                     value={formData.password} onChange={handleChange}
@@ -435,7 +436,7 @@ export default function LoginPage() {
             </div>
 
             <div className="security-seal">
-              <div className="seal-icon">🛡️</div>
+              <div className="seal-icon"><Icon name="selo" /></div>
               <p>Sua jornada está segura sob o pacto carmesim</p>
             </div>
           </div>
