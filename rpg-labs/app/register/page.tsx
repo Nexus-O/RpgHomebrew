@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Icon from "../../components/Icon";
 import { supabase } from "@/lib/supabase/client";
-import { syncFirebaseWithSupabaseSession } from "@/lib/sync-firebase-session";
 
 export default function RegistroPage() {
   const router = useRouter();
@@ -87,18 +86,11 @@ export default function RegistroPage() {
       return;
     }
 
-    try {
-      await syncFirebaseWithSupabaseSession();
-      router.push("/dashboard");
-    } catch (err) {
-      setErrors({ email: err instanceof Error ? err.message : "Erro ao sincronizar sessão." });
-    }
-
+    router.push("/dashboard");
     setIsLoading(false);
   };
 
-  // Login social (Google/Discord) — Supabase redireciona e volta para /login,
-  // que finaliza a sincronização com o Firebase.
+  // Login social (Google/Discord) — Supabase redireciona e volta para /login.
   const handleGoogleLogin = async () => {
     setIsLoading(true);
     const { error } = await supabase.auth.signInWithOAuth({

@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Icon from "../../components/Icon";
 import { supabase } from "@/lib/supabase/client";
-import { syncFirebaseWithSupabaseSession } from "@/lib/sync-firebase-session";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -23,13 +22,7 @@ export default function LoginPage() {
       async (event, session) => {
         if (event === "SIGNED_IN" && session) {
           setIsLoading(true);
-          try {
-            await syncFirebaseWithSupabaseSession();
-            router.push("/dashboard");
-          } catch (err) {
-            setErrors({ email: err instanceof Error ? err.message : "Erro ao sincronizar sessão." });
-            setIsLoading(false);
-          }
+          router.replace("/dashboard");
         }
       }
     );
@@ -72,8 +65,7 @@ export default function LoginPage() {
       return;
     }
 
-    // onAuthStateChange (acima) detecta o SIGNED_IN e termina o fluxo,
-    // sincronizando com o Firebase e navegando para o dashboard.
+    // onAuthStateChange (acima) detecta o SIGNED_IN e navega para o dashboard.
   };
 
   // Login social — o retorno é tratado pelo onAuthStateChange acima

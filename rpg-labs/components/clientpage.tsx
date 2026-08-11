@@ -1,14 +1,9 @@
 "use client";
-export const dynamic = "force-dynamic";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { onAuthStateChanged } from "firebase/auth";
-import { auth, db } from "../app/firebase";
+import type { User } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabase/client";
 import Icon, { ICONS, type IconName } from "./Icon";
-import {
-  collection, query, where, getDocs,
-  addDoc, deleteDoc, doc, serverTimestamp,
-} from "firebase/firestore";
 
 type SistemaKey = "purgatum" | "ordem" | "dnd" | "outro";
 const systems: Record<SistemaKey, { atributos: string[] }> = {
@@ -42,9 +37,34 @@ type Personagem = {
   descricao: string;
   avatar: string;
   userId: string;
-  atributos: string;
+  sistema?: SistemaKey;
+  atributos: Record<string, number>;
   foto: string;
 };
+
+type CharacterForm = {
+  nome: string;
+  classe: string;
+  raca: string;
+  nivel: number;
+  descricao: string;
+  avatar: IconName;
+  sistema: SistemaKey;
+  atributos: Record<string, number>;
+  foto: string;
+};
+
+const createEmptyForm = (): CharacterForm => ({
+  nome: "",
+  classe: CLASSES[0],
+  raca: RACAS[0],
+  nivel: 1,
+  descricao: "",
+  avatar: AVATARES[0],
+  sistema: "purgatum",
+  atributos: {},
+  foto: "",
+});
 
 /* Avatares disponíveis para seleção — usam ícones de fantasia (RPG-Awesome) */
 const AVATARES: IconName[] = [
@@ -52,13 +72,23 @@ const AVATARES: IconName[] = [
   "avatarNecromante", "avatarFogo", "avatarGelo", "avatarRaio",
   "avatarDruida", "avatarBardo",
 ];
+const MAX_PORTRAIT_SIZE_BYTES = 2 * 1024 * 1024;
 
 /**
  * Renderiza o avatar de um personagem.
  * Compatível com personagens antigos (avatar salvo como emoji) e novos
  * (avatar salvo como nome de ícone, ex: "avatarMago").
  */
-function renderAvatar(avatar: string | undefined, size = "4rem") {
+function renderAvatar(avatar: string | undefined, size = "4rem", photoUrl?: string) {
+  if (photoUrl) {
+    return (
+      <img
+        src={photoUrl}
+        alt="Retrato do personagem"
+        style={{ width: size, height: size, objectFit: "cover", borderRadius: "4px" }}
+      />
+    );
+  }
   if (avatar && avatar in ICONS) {
     return <Icon name={avatar as IconName} style={{ fontSize: size }} />;
   }
@@ -68,57 +98,108 @@ function renderAvatar(avatar: string | undefined, size = "4rem") {
 
 export default function PersonagensPage() {
   const router = useRouter();
-  const [user,         setUser]         = useState<any>(null);
+  const [user,         setUser]         = useState<User | null>(null);
   const [loading,      setLoading]      = useState(true);
   const [personagens,  setPersonagens]  = useState<Personagem[]>([]);
   const [sideOpen,     setSideOpen]     = useState(false);
   const [activeNav,    setActiveNav]    = useState("Personagens");
-  const [selectedSystem, setSelectedSystem] = useState<SistemaKey>("purgatum");
-  const [sistema, setSistema] = useState("purgatum");
   const [showForm,     setShowForm]     = useState(false);
   const [saving,       setSaving]       = useState(false);
   const [deletingId,   setDeletingId]   = useState<string | null>(null);
   const [selectedChar, setSelectedChar] = useState<Personagem | null>(null);
 
-  const [form, setForm] = useState({
-    nome: "", classe: CLASSES[0], raca: RACAS[0],
-    nivel: 1, descricao: "", avatar: AVATARES[0],
-    atributos: [0], foto: "",
-  });
+  const [form, setForm] = useState<CharacterForm>(createEmptyForm);
+  const [portraitFile, setPortraitFile] = useState<File | null>(null);
+  const [saveError, setSaveError] = useState("");
+  const displayName = user?.user_metadata?.username ?? user?.user_metadata?.full_name ?? user?.email?.split("@")[0];
+  const avatarUrl = user?.user_metadata?.avatar_url;
 
-  const fetchPersonagens = async (uid: string) => {
-    const q = query(collection(db, "characters"), where("userId", "==", uid));
-    const snap = await getDocs(q);
-    setPersonagens(snap.docs.map(d => ({ id: d.id, ...d.data() } as Personagem)));
+  const fetchPersonagens = async () => {
+    const { data, error } = await supabase
+      .from("characters")
+      .select("id, user_id, nome, classe, raca, nivel, descricao, avatar, sistema, atributos, foto_url")
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    setPersonagens((data ?? []).map((character) => ({
+      id: character.id,
+      userId: character.user_id,
+      nome: character.nome,
+      classe: character.classe,
+      raca: character.raca,
+      nivel: character.nivel,
+      descricao: character.descricao,
+      avatar: character.avatar,
+      sistema: character.sistema as SistemaKey,
+      atributos: character.atributos as Record<string, number>,
+      foto: character.foto_url ?? "",
+    })));
   };
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => {
-      if (u) { setUser(u); fetchPersonagens(u.uid); }
-      else router.push("/login");
+    const load = async () => {
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser) { router.replace("/login"); return; }
+      setUser(currentUser);
+      try { await fetchPersonagens(); } catch (error) { console.error(error); }
       setLoading(false);
+    };
+    void load();
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session) router.replace("/login");
     });
-    return () => unsub();
-  }, []);
+    return () => listener.subscription.unsubscribe();
+  }, [router]);
 
   const handleSave = async () => {
     if (!form.nome.trim()) return;
     setSaving(true);
+    setSaveError("");
     try {
-      await addDoc(collection(db, "characters"), {
-        ...form, userId: user.uid, createdAt: serverTimestamp(),
+      if (!user) throw new Error("Sua sessão expirou. Entre novamente para salvar o personagem.");
+      const characterId = crypto.randomUUID();
+      let photoUrl: string | null = null;
+
+      if (portraitFile) {
+        const extension = portraitFile.name.split(".").pop()?.toLowerCase() || "png";
+        const path = `${user.id}/${characterId}.${extension}`;
+        const { error: uploadError } = await supabase.storage
+          .from("character-portraits")
+          .upload(path, portraitFile, { upsert: false, contentType: portraitFile.type });
+        if (uploadError) throw uploadError;
+        photoUrl = supabase.storage.from("character-portraits").getPublicUrl(path).data.publicUrl;
+      }
+
+      const { error } = await supabase.from("characters").insert({
+        id: characterId,
+        user_id: user.id,
+        nome: form.nome.trim(),
+        classe: form.classe,
+        raca: form.raca,
+        nivel: form.nivel,
+        descricao: form.descricao,
+        avatar: form.avatar,
+        sistema: form.sistema,
+        atributos: form.atributos,
+        foto_url: photoUrl,
       });
-      await fetchPersonagens(user.uid);
+      if (error) throw error;
+      await fetchPersonagens();
       setShowForm(false);
-      setForm({ nome: "", classe: CLASSES[0], raca: RACAS[0], nivel: 1, descricao: "", avatar: AVATARES[0], atributos: [0], foto: "" });
-    } catch (e) { console.error(e); }
-    setSaving(false);
+      setForm(createEmptyForm());
+      setPortraitFile(null);
+    } catch (error) {
+      console.error("[characters:create]", error);
+      setSaveError(error instanceof Error ? error.message : "Não foi possível salvar o personagem.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDelete = async (id: string) => {
     setDeletingId(id);
     try {
-      await deleteDoc(doc(db, "characters", id));
+      const { error } = await supabase.from("characters").delete().eq("id", id);
+      if (error) throw error;
       setPersonagens(prev => prev.filter(p => p.id !== id));
       if (selectedChar?.id === id) setSelectedChar(null);
     } catch (e) { console.error(e); }
@@ -398,12 +479,12 @@ export default function PersonagensPage() {
             ))}
           </nav>
           <div className="sidebar-user">
-            <img src={user?.photoURL || "/avatar.png"} alt="avatar" className="user-avatar" />
+            <img src={avatarUrl || "/avatar.png"} alt="avatar" className="user-avatar" />
             <div className="user-info">
-              <span className="user-name">{user?.displayName || user?.email?.split("@")[0]}</span>
+              <span className="user-name">{displayName}</span>
               <span className="user-role">Aventureiro</span>
             </div>
-            <button className="logout-btn" onClick={() => { auth.signOut(); router.push("/login"); }} title="Sair"><Icon name="sair" /></button>
+            <button className="logout-btn" onClick={() => { void supabase.auth.signOut(); router.replace("/login"); }} title="Sair"><Icon name="sair" /></button>
           </div>
         </aside>
 
@@ -439,8 +520,12 @@ export default function PersonagensPage() {
                 <div className="form-group">
                   <label className="form-label">Sistema</label>
                   <select
-                    value={sistema}
-                    onChange={(e) => setSistema(e.target.value)}
+                    value={form.sistema}
+                    onChange={(e) => setForm((previous) => ({
+                      ...previous,
+                      sistema: e.target.value as SistemaKey,
+                      atributos: {},
+                    }))}
                     className="form-input"
                   >
                     <option value="purgatum">Purgatum</option>
@@ -504,7 +589,7 @@ export default function PersonagensPage() {
 
                   {/* Nível */}
                   <div className="atributos-grid">
-  {systems[selectedSystem].atributos.map((attr) => (
+  {systems[form.sistema].atributos.map((attr) => (
     <div key={attr} className="form-group">
       <label className="form-label">{attr}</label>
       <input
@@ -532,14 +617,16 @@ export default function PersonagensPage() {
     onChange={(e) => {
       const file = e.target.files?.[0];
       if (file) {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          setPersonagens((prev) => ({
-            ...prev,
-            foto: reader.result as string,
-          }));
-        };
-        reader.readAsDataURL(file);
+        if (file.size > MAX_PORTRAIT_SIZE_BYTES) {
+          setPortraitFile(null);
+          setForm((prev) => ({ ...prev, foto: "" }));
+          setSaveError("O retrato deve ter no máximo 2 MB.");
+          e.target.value = "";
+          return;
+        }
+        setPortraitFile(file);
+        setSaveError("");
+        setForm((prev) => ({ ...prev, foto: URL.createObjectURL(file) }));
       }
     }}
   />
@@ -566,6 +653,7 @@ export default function PersonagensPage() {
                 </div>
 
                 <div className="form-actions">
+                  {saveError && <p role="alert" style={{ color: "#ff8a8a", marginRight: "auto" }}>{saveError}</p>}
                   <button className="btn-cancel" onClick={() => setShowForm(false)}>Cancelar</button>
                   <button className="btn-save" onClick={handleSave} disabled={saving || !form.nome.trim()}>
                     {saving ? "Forjando..." : "Forjar Personagem"}
@@ -592,7 +680,7 @@ export default function PersonagensPage() {
                     onClick={() => setSelectedChar(p)}
                   >
                     <div className="char-avatar-area">
-                      {renderAvatar(p.avatar)}
+                      {renderAvatar(p.avatar, "4rem", p.foto)}
                       <span className="char-nivel-badge">Nível {p.nivel}</span>
                     </div>
                     <div className="char-body">
@@ -627,7 +715,7 @@ export default function PersonagensPage() {
           <div className="modal" onClick={e => e.stopPropagation()}>
             <div className="modal-top-line" />
             <button className="modal-close" onClick={() => setSelectedChar(null)}><Icon name="fechar" /> Fechar</button>
-            <div className="modal-avatar">{renderAvatar(selectedChar.avatar)}</div>
+            <div className="modal-avatar">{renderAvatar(selectedChar.avatar, "7rem", selectedChar.foto)}</div>
             <div className="modal-body">
               <div className="modal-name">{selectedChar.nome}</div>
               <div className="modal-meta">{selectedChar.classe} · {selectedChar.raca} · Nível {selectedChar.nivel}</div>

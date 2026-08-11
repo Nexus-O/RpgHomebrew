@@ -2,12 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { onAuthStateChanged } from "firebase/auth";
-import { auth, db } from "../firebase";
+import type { User } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabase/client";
 import Icon, { type IconName } from "../../components/Icon";
-import {
-  collection, query, where, getDocs, orderBy, limit,
-} from "firebase/firestore";
 
 const NAV: { icon: IconName; label: string; href: string }[] = [
   { icon: "dashboard",    label: "Dashboard",   href: "/dashboard"   },
@@ -27,47 +24,61 @@ const STAT_DEFS: { key: string; label: string; icon: IconName; color: string }[]
 
 export default function Dashboard() {
   const router = useRouter();
-  const [user,       setUser]       = useState<any>(null);
+  const [user,       setUser]       = useState<User | null>(null);
   const [loading,    setLoading]    = useState(true);
   const [sideOpen,   setSideOpen]   = useState(false);
   const [stats,      setStats]      = useState({ characters: 0, campaigns: 0, sessions: 0, items: 0 });
-  const [activities, setActivities] = useState<any[]>([]);
+  const [activities, setActivities] = useState<{ id: string; text: string }[]>([]);
   const [activeNav,  setActiveNav]  = useState("Dashboard");
 
   // ✅ useEffect corrigido — sem timeout, sem auth.currentUser manual
   // onAuthStateChanged já captura o retorno do signInWithRedirect automaticamente
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      if (firebaseUser) {
-        setUser(firebaseUser);
-        loadData(firebaseUser.uid);
-      } else {
-        router.push("/login");
+    const loadSession = async () => {
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser) {
+        router.replace("/login");
+        return;
       }
+
+      setUser(currentUser);
+      await loadData();
       setLoading(false);
+    };
+
+    void loadSession();
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session) router.replace("/login");
     });
 
-    return () => unsubscribe();
-  }, []);
+    return () => listener.subscription.unsubscribe();
+  }, [router]);
 
   const handleLogout = async () => {
-    await auth.signOut();
-    router.push("/login");
+    await supabase.auth.signOut();
+    router.replace("/login");
   };
 
-  const loadData = async (uid: string) => {
+  const loadData = async () => {
     try {
-      const [charSnap, campSnap, actSnap] = await Promise.all([
-        getDocs(query(collection(db, "characters"), where("userId", "==", uid))),
-        getDocs(query(collection(db, "campaigns"),  where("members", "array-contains", uid))),
-        getDocs(query(collection(db, "activities"), where("userId", "==", uid), orderBy("createdAt", "desc"), limit(6))),
+      const [characters, campaigns, activityRows] = await Promise.all([
+        supabase.from("characters").select("id", { count: "exact", head: true }),
+        supabase.from("campaign_members").select("campaign_id", { count: "exact", head: true }),
+        supabase.from("activities").select("id, text").order("created_at", { ascending: false }).limit(6),
       ]);
-      setStats({ characters: charSnap.size, campaigns: campSnap.size, sessions: 0, items: 0 });
-      setActivities(actSnap.docs.map((d) => d.data()));
+      if (characters.error || campaigns.error || activityRows.error) {
+        throw characters.error ?? campaigns.error ?? activityRows.error;
+      }
+
+      setStats({ characters: characters.count ?? 0, campaigns: campaigns.count ?? 0, sessions: 0, items: 0 });
+      setActivities(activityRows.data ?? []);
     } catch (e) {
       console.error("Erro ao carregar dados:", e);
     }
   };
+
+  const displayName = user?.user_metadata?.username ?? user?.user_metadata?.full_name ?? user?.email?.split("@")[0];
+  const avatarUrl = user?.user_metadata?.avatar_url;
 
   if (loading) return (
     <div style={{
@@ -239,9 +250,9 @@ export default function Dashboard() {
 ))}
           </nav>
           <div className="sidebar-user">
-            <img src={user?.photoURL || "/avatar.png"} alt="avatar" className="user-avatar" />
+            <img src={avatarUrl || "/avatar.png"} alt="avatar" className="user-avatar" />
             <div className="user-info">
-              <span className="user-name">{user?.displayName || user?.email?.split("@")[0]}</span>
+              <span className="user-name">{displayName}</span>
               <span className="user-role">Aventureiro</span>
             </div>
             <button className="logout-btn" onClick={handleLogout} title="Sair"><Icon name="sair" /></button>
@@ -266,7 +277,7 @@ export default function Dashboard() {
               <h1 className="page-title">DASHBOARD</h1>
               <p className="page-greeting">
                 Bem-vindo de volta,{" "}
-                <strong>{user?.displayName || user?.email?.split("@")[0]}</strong>
+                <strong>{displayName}</strong>
                 {" "}— que sua sessão seja épica.
               </p>
               <div className="section-divider" />
