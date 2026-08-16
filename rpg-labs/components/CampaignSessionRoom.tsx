@@ -1,22 +1,26 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import Icon from "@/components/Icon";
+import Image from "next/image";
+import { useEffect, useState } from "react";
+import Icon, { ICONS, type IconName } from "@/components/Icon";
 import { supabase } from "@/lib/supabase/client";
 
 type Session = { id: string; room_key: string; layout: { tabletop_stream_id?: string } };
 type Character = { id: string; nome: string; avatar: string; foto_url: string | null };
-type Member = { user_id: string; stream_id: string; nome: string | null; avatar: string | null; foto_url: string | null; joined_at?: number };
+type Member = { user_id: string; stream_id: string; nome: string | null; avatar: string | null; foto_url: string | null; joined_at?: number; camera_hidden?: boolean; microphone_muted?: boolean };
 const VDO = "https://vdo.ninja";
 const allow = "camera; microphone; autoplay; fullscreen; display-capture";
 const makeId = (prefix: string) => `${prefix}${Array.from(crypto.getRandomValues(new Uint8Array(18)), value => "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[value % 32]).join("")}`;
 const viewUrl = (id: string) => `${VDO}/?view=${id}&cleanviewer&nocontrols&autoplay&transparent`;
 
-function Stage({ session, members, ownStreamId, ownUserId }: { session: Session; members: Member[]; ownStreamId: string | null; ownUserId: string }) {
-  const own = ownStreamId ? { user_id: ownUserId, stream_id: ownStreamId, nome: "Você", avatar: "usuario", foto_url: null } : null;
-  const participants = own && !members.some(member => member.user_id === ownUserId) ? [own, ...members] : members;
-  const slots = Array.from({ length: 7 }, (_, index) => participants[index]);
-  return <article className="live-stage"><div className="live-stage-bar"><span>Palco da mesa</span><div className="live-stage-actions"><small>Grade</small><button className="live-fullscreen" type="button" onClick={(event) => void event.currentTarget.closest(".live-stage")?.requestFullscreen()} aria-label="Abrir palco em tela cheia">⛶</button></div></div><div className="live-grid-stage"><img className="live-grid-art" src="/grade.png" alt="Moldura da transmissão" /><div className="live-tabletop">{session.layout.tabletop_stream_id ? <iframe title="Tabletop" src={viewUrl(session.layout.tabletop_stream_id)} allow={allow} /> : <div className="live-tabletop-empty"><Icon name="mapa" /><span>Tabletop aguardando conexão do mestre</span></div>}</div><div className="live-camera-slots">{slots.map((member, index) => <div className="live-camera-slot" key={member?.user_id ?? index}>{member ? <iframe title={`Câmera de ${member.nome ?? "participante"}`} src={viewUrl(member.stream_id)} allow={allow} /> : <span>Aguardando</span>}</div>)}</div></div></article>;
+function CharacterPortrait({ member }: { member: Member }) {
+  const avatar = member.avatar && member.avatar in ICONS ? member.avatar as IconName : "usuario";
+  return <div className="live-character-portrait">{member.foto_url ? <Image src={member.foto_url} alt={`Retrato de ${member.nome ?? "personagem"}`} fill sizes="20vw" unoptimized /> : <Icon name={avatar} />}<strong>{member.nome ?? "Jogador"}</strong></div>;
+}
+
+function Stage({ session, members }: { session: Session; members: Member[] }) {
+  const slots = Array.from({ length: 7 }, (_, index) => members[index]);
+  return <article className="live-stage"><div className="live-stage-bar"><span>Palco da mesa</span><div className="live-stage-actions"><small>Grade</small><button className="live-fullscreen" type="button" onClick={(event) => void event.currentTarget.closest(".live-stage")?.requestFullscreen()} aria-label="Abrir palco em tela cheia">⛶</button></div></div><div className="live-grid-stage"><img className="live-grid-art" src="/grade.png" alt="Moldura da transmissão" /><div className="live-tabletop">{session.layout.tabletop_stream_id ? <iframe title="Tabletop" src={viewUrl(session.layout.tabletop_stream_id)} allow={allow} /> : <div className="live-tabletop-empty"><Icon name="mapa" /><span>Tabletop aguardando conexão do mestre</span></div>}</div><div className="live-camera-slots">{slots.map((member, index) => <div className="live-camera-slot" key={member?.user_id ?? index}>{member ? <>{member.camera_hidden ? <CharacterPortrait member={member} /> : <iframe title={`Câmera de ${member.nome ?? "participante"}`} src={viewUrl(member.stream_id)} allow={allow} />}{member.microphone_muted && <span className="live-muted-badge">MUDO</span>}</> : <span>Aguardando</span>}</div>)}</div></div></article>;
 }
 
 export default function CampaignSessionRoom({ campaignId, userId, isMaster }: { campaignId: string; userId: string; isMaster: boolean }) {
@@ -26,7 +30,6 @@ export default function CampaignSessionRoom({ campaignId, userId, isMaster }: { 
   const [streamId, setStreamId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
-  const joinedAt = useRef(Date.now());
 
   const refresh = async () => {
     const [{ data: activeSession, error: sessionError }, { data: ownCharacter, error: characterError }] = await Promise.all([
@@ -37,12 +40,8 @@ export default function CampaignSessionRoom({ campaignId, userId, isMaster }: { 
     setSession(activeSession as Session | null);
     setCharacter(ownCharacter as Character | null);
     if (activeSession) {
-      const { data } = await supabase.from("campaign_session_participants").select("stream_id, joined_at").eq("session_id", activeSession.id).eq("user_id", userId).is("left_at", null).maybeSingle();
-      if (data?.stream_id) {
-        const persistedJoinTime = Date.parse(data.joined_at);
-        if (Number.isFinite(persistedJoinTime)) joinedAt.current = persistedJoinTime;
-        setStreamId(data.stream_id);
-      }
+      const { data } = await supabase.from("campaign_session_participants").select("stream_id").eq("session_id", activeSession.id).eq("user_id", userId).is("left_at", null).maybeSingle();
+      if (data?.stream_id) setStreamId(data.stream_id);
     }
   };
 
@@ -54,20 +53,18 @@ export default function CampaignSessionRoom({ campaignId, userId, isMaster }: { 
 
   useEffect(() => {
     if (!session) return;
-    const channel = supabase.channel(`campaign-stage-${session.id}`, { config: { presence: { key: userId } } });
+    const channel = supabase.channel(`campaign-stage-${session.id}`);
     channel.on("presence", { event: "sync" }, () => {
-      const nextMembers = Object.values(channel.presenceState<Member>()).flat().map(({ user_id, stream_id, nome, avatar, foto_url, joined_at }) => ({ user_id, stream_id, nome, avatar, foto_url, joined_at }));
+      const nextMembers = Object.values(channel.presenceState<Member>()).flat().map(({ user_id, stream_id, nome, avatar, foto_url, joined_at, camera_hidden, microphone_muted }) => ({ user_id, stream_id, nome, avatar, foto_url, joined_at, camera_hidden, microphone_muted }));
       const membersByUser = new Map<string, Member>();
       for (const member of nextMembers) {
         if (member.stream_id) membersByUser.set(member.user_id, member);
       }
       setMembers([...membersByUser.values()].sort((a, b) => (a.joined_at ?? Number.MAX_SAFE_INTEGER) - (b.joined_at ?? Number.MAX_SAFE_INTEGER) || a.user_id.localeCompare(b.user_id)));
     });
-    channel.subscribe(status => {
-      if (status === "SUBSCRIBED" && streamId) void channel.track({ user_id: userId, stream_id: streamId, nome: character?.nome ?? "Jogador", avatar: character?.avatar ?? "usuario", foto_url: character?.foto_url ?? null, joined_at: joinedAt.current });
-    });
+    channel.subscribe();
     return () => { void supabase.removeChannel(channel); };
-  }, [character?.avatar, character?.foto_url, character?.nome, session?.id, streamId, userId]);
+  }, [session?.id]);
 
   const createSession = async () => {
     setBusy(true);
@@ -80,11 +77,9 @@ export default function CampaignSessionRoom({ campaignId, userId, isMaster }: { 
     if (!session) return;
     setBusy(true);
     const nextStreamId = streamId ?? makeId("cam");
-    const { data, error } = await supabase.from("campaign_session_participants").upsert({ session_id: session.id, user_id: userId, character_id: character?.id ?? null, stream_id: nextStreamId, left_at: null }).select("joined_at").single();
+    const { error } = await supabase.from("campaign_session_participants").upsert({ session_id: session.id, user_id: userId, character_id: character?.id ?? null, stream_id: nextStreamId, left_at: null });
     setBusy(false);
     if (error) setNotice(error.message); else {
-      const persistedJoinTime = Date.parse(data.joined_at);
-      if (Number.isFinite(persistedJoinTime)) joinedAt.current = persistedJoinTime;
       setStreamId(nextStreamId);
       const cameraWindow = window.open(`/transmissao/${session.id}?stream=${encodeURIComponent(nextStreamId)}`, `nexus-camera-${session.id}`, "popup,width=720,height=620");
       if (!cameraWindow) setNotice("O navegador bloqueou a janela da câmera. Libere pop-ups para este site e tente novamente.");
@@ -92,5 +87,5 @@ export default function CampaignSessionRoom({ campaignId, userId, isMaster }: { 
   };
 
   if (!session) return <section className="live-empty"><Icon name="dados" /><h2>Nenhuma sessão aberta</h2>{isMaster ? <button className="live-primary" disabled={busy} onClick={() => void createSession()}>Abrir lobby da sessão</button> : <p>Aguarde o mestre abrir a sessão.</p>}</section>;
-  return <section className="live-room"><header className="live-top"><div><p className="live-kicker">Sessão da campanha</p><h2>{isMaster ? "Escudo do Mestre" : "Sala da campanha"}</h2></div></header><div className={`live-layout ${isMaster ? "master" : "player"}`}><Stage session={session} members={members} ownStreamId={streamId} ownUserId={userId} /><aside className="live-sheet"><p className="live-kicker">{isMaster ? "Direção" : "Sua ficha"}</p><h3>{character?.nome ?? "Sem personagem"}</h3><p className="live-help">A grade é compartilhada: cada jogador recebe o próximo quadro livre.</p></aside></div><section className="live-controls"><div><p className="live-kicker">Sua câmera</p><p className="live-help">Entre para reservar seu quadro na grade.</p></div><button className="live-primary" disabled={busy} onClick={() => void enter()}>{streamId ? "Reconectar câmera" : "Entrar com câmera"}</button></section>{notice && <p className="live-notice">{notice}</p>}</section>;
+  return <section className="live-room"><header className="live-top"><div><p className="live-kicker">Sessão da campanha</p><h2>{isMaster ? "Escudo do Mestre" : "Sala da campanha"}</h2></div></header><div className={`live-layout ${isMaster ? "master" : "player"}`}><Stage session={session} members={members} /><aside className="live-sheet"><p className="live-kicker">{isMaster ? "Direção" : "Sua ficha"}</p><h3>{character?.nome ?? "Sem personagem"}</h3><p className="live-help">A grade é compartilhada: cada jogador recebe o próximo quadro livre.</p></aside></div><section className="live-controls"><div><p className="live-kicker">Sua câmera</p><p className="live-help">Entre para reservar seu quadro na grade.</p></div><button className="live-primary" disabled={busy} onClick={() => void enter()}>{streamId ? "Reconectar câmera" : "Entrar com câmera"}</button></section>{notice && <p className="live-notice">{notice}</p>}</section>;
 }
