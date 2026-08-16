@@ -9,21 +9,28 @@ import { supabase } from "@/lib/supabase/client";
 type SessionLayout = { mode?: string; tabletop_stream_id?: string; music?: SessionMusicState };
 type Session = { id: string; room_key: string; layout: SessionLayout };
 type Character = { id: string; nome: string; avatar: string; foto_url: string | null };
-type Member = { user_id: string; stream_id: string; nome: string | null; avatar: string | null; foto_url: string | null; joined_at?: number; camera_hidden?: boolean; microphone_muted?: boolean };
+type Member = { user_id: string; stream_id: string; nome: string | null; avatar: string | null; foto_url: string | null; vida: string; sanidade: string; joined_at?: number; camera_hidden?: boolean; microphone_muted?: boolean };
 const VDO = "https://vdo.ninja";
 const allow = "camera; microphone; autoplay; fullscreen; display-capture";
 const makeId = (prefix: string) => `${prefix}${Array.from(crypto.getRandomValues(new Uint8Array(18)), value => "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[value % 32]).join("")}`;
 const viewUrl = (id: string) => `${VDO}/?view=${id}&cleanviewer&nocontrols&autoplay&transparent`;
 const tabletopViewUrl = (id: string) => `${viewUrl(id)}&sharperscreen&screensharebitrate=6000`;
 
-function CharacterPortrait({ member }: { member: Member }) {
+function statPercent(value: string) {
+  const [currentText, maximumText] = value.split("/").map(part => Number(part.trim().replace(",", ".")));
+  if (!Number.isFinite(currentText)) return 0;
+  if (!Number.isFinite(maximumText) || maximumText <= 0) return 100;
+  return Math.max(0, Math.min(100, currentText / maximumText * 100));
+}
+
+function CharacterPortrait({ member, cameraLive = false }: { member: Member; cameraLive?: boolean }) {
   const avatar = member.avatar && member.avatar in ICONS ? member.avatar as IconName : "usuario";
-  return <div className="live-character-portrait">{member.foto_url ? <Image src={member.foto_url} alt={`Retrato de ${member.nome ?? "personagem"}`} fill sizes="20vw" unoptimized /> : <Icon name={avatar} />}<strong>{member.nome ?? "Jogador"}</strong></div>;
+  return <div className={`live-character-portrait ${cameraLive ? "camera-live" : "camera-hidden"}`}><div className="live-character-card"><div className="live-character-picture">{member.foto_url ? <Image src={member.foto_url} alt={`Retrato de ${member.nome ?? "personagem"}`} fill sizes="20vw" unoptimized /> : <Icon name={avatar} />}</div><div className="live-character-data"><strong title={member.nome ?? "Jogador"}>{member.nome ?? "Jogador"}</strong><div className="live-character-stat life"><span style={{ width: `${statPercent(member.vida)}%` }} /><b><small>PV</small>{member.vida}</b></div><div className="live-character-stat sanity"><span style={{ width: `${statPercent(member.sanidade)}%` }} /><b><small>SAN</small>{member.sanidade}</b></div></div></div></div>;
 }
 
 function Stage({ session, members }: { session: Session; members: Member[] }) {
   const slots = Array.from({ length: 7 }, (_, index) => members[index]);
-  return <article className="live-stage"><div className="live-stage-bar"><span>Palco da mesa</span><div className="live-stage-actions"><small>Grade</small><button className="live-fullscreen" type="button" onClick={(event) => void event.currentTarget.closest(".live-stage")?.requestFullscreen()} aria-label="Abrir palco em tela cheia">⛶</button></div></div><div className="live-grid-stage"><img className="live-grid-art" src="/grade.png" alt="Moldura da transmissão" /><div className="live-tabletop">{session.layout.tabletop_stream_id ? <iframe title="Tabletop" src={tabletopViewUrl(session.layout.tabletop_stream_id)} allow={allow} /> : <div className="live-tabletop-empty"><Icon name="mapa" /><span>Tabletop aguardando conexão do mestre</span></div>}</div><div className="live-camera-slots">{slots.map((member, index) => <div className="live-camera-slot" key={member?.user_id ?? index}>{member ? <>{member.camera_hidden ? <CharacterPortrait member={member} /> : <iframe title={`Câmera de ${member.nome ?? "participante"}`} src={viewUrl(member.stream_id)} allow={allow} />}{member.microphone_muted && <span className="live-muted-badge">MUDO</span>}</> : <span>Aguardando</span>}</div>)}</div></div></article>;
+  return <article className="live-stage"><div className="live-stage-bar"><span>Palco da mesa</span><div className="live-stage-actions"><small>Grade</small><button className="live-fullscreen" type="button" onClick={(event) => void event.currentTarget.closest(".live-stage")?.requestFullscreen()} aria-label="Abrir palco em tela cheia">⛶</button></div></div><div className="live-grid-stage"><img className="live-grid-art" src="/grade.png" alt="Moldura da transmissão" /><div className="live-tabletop">{session.layout.tabletop_stream_id ? <iframe title="Tabletop" src={tabletopViewUrl(session.layout.tabletop_stream_id)} allow={allow} /> : <div className="live-tabletop-empty"><Icon name="mapa" /><span>Tabletop aguardando conexão do mestre</span></div>}</div><div className="live-camera-slots">{slots.map((member, index) => <div className="live-camera-slot" key={member?.user_id ?? index}>{member ? <>{!member.camera_hidden && <iframe title={`Câmera de ${member.nome ?? "participante"}`} src={viewUrl(member.stream_id)} allow={allow} />}<CharacterPortrait member={member} cameraLive={!member.camera_hidden} />{member.microphone_muted && <span className="live-muted-badge">MUDO</span>}</> : <span>Aguardando</span>}</div>)}</div></div></article>;
 }
 
 export default function CampaignSessionRoom({ campaignId, userId, isMaster }: { campaignId: string; userId: string; isMaster: boolean }) {
@@ -59,7 +66,7 @@ export default function CampaignSessionRoom({ campaignId, userId, isMaster }: { 
     if (!session) return;
     const channel = supabase.channel(`campaign-stage-${session.id}`);
     channel.on("presence", { event: "sync" }, () => {
-      const nextMembers = Object.values(channel.presenceState<Member>()).flat().map(({ user_id, stream_id, nome, avatar, foto_url, joined_at, camera_hidden, microphone_muted }) => ({ user_id, stream_id, nome, avatar, foto_url, joined_at, camera_hidden, microphone_muted }));
+      const nextMembers = Object.values(channel.presenceState<Member>()).flat().map(({ user_id, stream_id, nome, avatar, foto_url, vida, sanidade, joined_at, camera_hidden, microphone_muted }) => ({ user_id, stream_id, nome, avatar, foto_url, vida: vida ?? "—", sanidade: sanidade ?? "—", joined_at, camera_hidden, microphone_muted }));
       const membersByUser = new Map<string, Member>();
       for (const member of nextMembers) {
         if (member.stream_id) membersByUser.set(member.user_id, member);

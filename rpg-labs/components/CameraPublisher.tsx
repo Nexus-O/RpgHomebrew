@@ -15,14 +15,35 @@ type CameraMember = {
   nome: string | null;
   avatar: string | null;
   foto_url: string | null;
+  vida: string;
+  sanidade: string;
   joined_at: number;
   camera_hidden: boolean;
   microphone_muted: boolean;
 };
 
+type CharacterData = {
+  nome: string | null;
+  avatar: string | null;
+  foto_url: string | null;
+  atributos: Record<string, unknown> | null;
+};
+
+const textValue = (value: unknown) => value === null || value === undefined || value === "" ? "—" : String(value);
+
+function characterStats(atributos: Record<string, unknown> | null | undefined) {
+  const deprac = atributos?.deprac && typeof atributos.deprac === "object"
+    ? atributos.deprac as Record<string, unknown>
+    : null;
+  return {
+    vida: textValue(deprac?.vitality ?? atributos?.Vitalidade ?? atributos?.Vida),
+    sanidade: textValue(deprac?.stress ?? atributos?.Sanidade ?? atributos?.Corrupção),
+  };
+}
+
 function CharacterPortrait({ member }: { member: CameraMember }) {
   const avatar = member.avatar && member.avatar in ICONS ? member.avatar as IconName : "usuario";
-  return <div className="camera-source-portrait">{member.foto_url ? <Image src={member.foto_url} alt={`Retrato de ${member.nome ?? "personagem"}`} fill sizes="760px" unoptimized /> : <Icon name={avatar} />}<strong>{member.nome ?? "Jogador"}</strong></div>;
+  return <div className="camera-source-portrait"><div className="camera-source-portrait-card"><div className="camera-source-portrait-picture">{member.foto_url ? <Image src={member.foto_url} alt={`Retrato de ${member.nome ?? "personagem"}`} fill sizes="420px" unoptimized /> : <Icon name={avatar} />}</div><div className="camera-source-portrait-data"><strong>{member.nome ?? "Jogador"}</strong><div className="camera-source-stat life"><span>{member.vida}</span></div><div className="camera-source-stat sanity"><span>{member.sanidade}</span></div></div></div></div>;
 }
 
 export default function CameraPublisher({ sessionId }: { sessionId: string }) {
@@ -36,6 +57,7 @@ export default function CameraPublisher({ sessionId }: { sessionId: string }) {
 
   useEffect(() => {
     let disposed = false;
+    let characterTimer: number | null = null;
 
     const prepare = async () => {
       const streamId = new URLSearchParams(window.location.search).get("stream");
@@ -49,17 +71,19 @@ export default function CameraPublisher({ sessionId }: { sessionId: string }) {
       if (sessionError || participantError || !session || participant?.stream_id !== streamId) return setMessage("Esta câmera não pertence à sua sessão.");
 
       const { data: character } = participant.character_id
-        ? await supabase.from("characters").select("nome, avatar, foto_url").eq("id", participant.character_id).maybeSingle()
+        ? await supabase.from("characters").select("nome, avatar, foto_url, atributos").eq("id", participant.character_id).maybeSingle<CharacterData>()
         : { data: null };
       if (disposed) return;
 
       const joinedAt = Date.parse(participant.joined_at);
+      const stats = characterStats(character?.atributos);
       const initialMember: CameraMember = {
         user_id: user.id,
         stream_id: streamId,
         nome: character?.nome ?? "Jogador",
         avatar: character?.avatar ?? "usuario",
         foto_url: character?.foto_url ?? null,
+        ...stats,
         joined_at: Number.isFinite(joinedAt) ? joinedAt : Date.now(),
         camera_hidden: false,
         microphone_muted: false,
@@ -74,11 +98,43 @@ export default function CameraPublisher({ sessionId }: { sessionId: string }) {
       channel.subscribe(status => {
         if (status === "SUBSCRIBED" && memberRef.current) void channel.track(memberRef.current);
       });
+
+      if (participant.character_id) {
+        const refreshCharacter = async () => {
+          const { data: latestCharacter } = await supabase
+            .from("characters")
+            .select("nome, avatar, foto_url, atributos")
+            .eq("id", participant.character_id)
+            .maybeSingle<CharacterData>();
+          if (disposed || !latestCharacter || !memberRef.current) return;
+          const latestStats = characterStats(latestCharacter.atributos);
+          const current = memberRef.current;
+          const nextMember: CameraMember = {
+            ...current,
+            nome: latestCharacter.nome ?? "Jogador",
+            avatar: latestCharacter.avatar ?? "usuario",
+            foto_url: latestCharacter.foto_url ?? null,
+            ...latestStats,
+          };
+          if (
+            nextMember.nome === current.nome
+            && nextMember.avatar === current.avatar
+            && nextMember.foto_url === current.foto_url
+            && nextMember.vida === current.vida
+            && nextMember.sanidade === current.sanidade
+          ) return;
+          memberRef.current = nextMember;
+          setMember(nextMember);
+          void channel.track(nextMember);
+        };
+        characterTimer = window.setInterval(() => void refreshCharacter(), 1500);
+      }
     };
 
     void prepare();
     return () => {
       disposed = true;
+      if (characterTimer !== null) window.clearInterval(characterTimer);
       const channel = channelRef.current;
       channelRef.current = null;
       if (channel) void supabase.removeChannel(channel);
