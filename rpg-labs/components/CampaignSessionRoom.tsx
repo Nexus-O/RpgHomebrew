@@ -3,15 +3,18 @@
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import Icon, { ICONS, type IconName } from "@/components/Icon";
+import SessionMusicPlayer, { type SessionMusicState } from "@/components/SessionMusicPlayer";
 import { supabase } from "@/lib/supabase/client";
 
-type Session = { id: string; room_key: string; layout: { tabletop_stream_id?: string } };
+type SessionLayout = { mode?: string; tabletop_stream_id?: string; music?: SessionMusicState };
+type Session = { id: string; room_key: string; layout: SessionLayout };
 type Character = { id: string; nome: string; avatar: string; foto_url: string | null };
 type Member = { user_id: string; stream_id: string; nome: string | null; avatar: string | null; foto_url: string | null; joined_at?: number; camera_hidden?: boolean; microphone_muted?: boolean };
 const VDO = "https://vdo.ninja";
 const allow = "camera; microphone; autoplay; fullscreen; display-capture";
 const makeId = (prefix: string) => `${prefix}${Array.from(crypto.getRandomValues(new Uint8Array(18)), value => "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[value % 32]).join("")}`;
 const viewUrl = (id: string) => `${VDO}/?view=${id}&cleanviewer&nocontrols&autoplay&transparent`;
+const tabletopViewUrl = (id: string) => `${viewUrl(id)}&sharperscreen&screensharebitrate=6000`;
 
 function CharacterPortrait({ member }: { member: Member }) {
   const avatar = member.avatar && member.avatar in ICONS ? member.avatar as IconName : "usuario";
@@ -20,7 +23,7 @@ function CharacterPortrait({ member }: { member: Member }) {
 
 function Stage({ session, members }: { session: Session; members: Member[] }) {
   const slots = Array.from({ length: 7 }, (_, index) => members[index]);
-  return <article className="live-stage"><div className="live-stage-bar"><span>Palco da mesa</span><div className="live-stage-actions"><small>Grade</small><button className="live-fullscreen" type="button" onClick={(event) => void event.currentTarget.closest(".live-stage")?.requestFullscreen()} aria-label="Abrir palco em tela cheia">⛶</button></div></div><div className="live-grid-stage"><img className="live-grid-art" src="/grade.png" alt="Moldura da transmissão" /><div className="live-tabletop">{session.layout.tabletop_stream_id ? <iframe title="Tabletop" src={viewUrl(session.layout.tabletop_stream_id)} allow={allow} /> : <div className="live-tabletop-empty"><Icon name="mapa" /><span>Tabletop aguardando conexão do mestre</span></div>}</div><div className="live-camera-slots">{slots.map((member, index) => <div className="live-camera-slot" key={member?.user_id ?? index}>{member ? <>{member.camera_hidden ? <CharacterPortrait member={member} /> : <iframe title={`Câmera de ${member.nome ?? "participante"}`} src={viewUrl(member.stream_id)} allow={allow} />}{member.microphone_muted && <span className="live-muted-badge">MUDO</span>}</> : <span>Aguardando</span>}</div>)}</div></div></article>;
+  return <article className="live-stage"><div className="live-stage-bar"><span>Palco da mesa</span><div className="live-stage-actions"><small>Grade</small><button className="live-fullscreen" type="button" onClick={(event) => void event.currentTarget.closest(".live-stage")?.requestFullscreen()} aria-label="Abrir palco em tela cheia">⛶</button></div></div><div className="live-grid-stage"><img className="live-grid-art" src="/grade.png" alt="Moldura da transmissão" /><div className="live-tabletop">{session.layout.tabletop_stream_id ? <iframe title="Tabletop" src={tabletopViewUrl(session.layout.tabletop_stream_id)} allow={allow} /> : <div className="live-tabletop-empty"><Icon name="mapa" /><span>Tabletop aguardando conexão do mestre</span></div>}</div><div className="live-camera-slots">{slots.map((member, index) => <div className="live-camera-slot" key={member?.user_id ?? index}>{member ? <>{member.camera_hidden ? <CharacterPortrait member={member} /> : <iframe title={`Câmera de ${member.nome ?? "participante"}`} src={viewUrl(member.stream_id)} allow={allow} />}{member.microphone_muted && <span className="live-muted-badge">MUDO</span>}</> : <span>Aguardando</span>}</div>)}</div></div></article>;
 }
 
 export default function CampaignSessionRoom({ campaignId, userId, isMaster }: { campaignId: string; userId: string; isMaster: boolean }) {
@@ -29,6 +32,7 @@ export default function CampaignSessionRoom({ campaignId, userId, isMaster }: { 
   const [members, setMembers] = useState<Member[]>([]);
   const [streamId, setStreamId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [sourceBusy, setSourceBusy] = useState(false);
   const [notice, setNotice] = useState("");
 
   const refresh = async () => {
@@ -86,6 +90,31 @@ export default function CampaignSessionRoom({ campaignId, userId, isMaster }: { 
     }
   };
 
+  const openMasterSource = async (mode: "obs" | "screen") => {
+    if (!session || !isMaster) return;
+    const sourceWindow = window.open("", `nexus-tabletop-${session.id}`, "popup,width=900,height=720");
+    if (!sourceWindow) return setNotice("O navegador bloqueou a janela da transmissão. Libere pop-ups e tente novamente.");
+    setSourceBusy(true);
+    const streamId = session.layout.tabletop_stream_id ?? makeId("table");
+    const nextLayout = { ...session.layout, tabletop_stream_id: streamId };
+    const { data, error } = await supabase.from("campaign_sessions").update({ layout: nextLayout }).eq("id", session.id).select("id, room_key, layout").single();
+    setSourceBusy(false);
+    if (error) {
+      sourceWindow.close();
+      return setNotice(error.message);
+    }
+    setSession(data as Session);
+    sourceWindow.location.href = `/transmissao/${session.id}/fonte?mode=${mode}`;
+  };
+
+  const updateMusic = async (music: SessionMusicState | null) => {
+    if (!session || !isMaster) return;
+    const nextLayout = { ...session.layout, music: music ?? undefined };
+    const { data, error } = await supabase.from("campaign_sessions").update({ layout: nextLayout }).eq("id", session.id).select("id, room_key, layout").single();
+    if (error) throw error;
+    setSession(data as Session);
+  };
+
   if (!session) return <section className="live-empty"><Icon name="dados" /><h2>Nenhuma sessão aberta</h2>{isMaster ? <button className="live-primary" disabled={busy} onClick={() => void createSession()}>Abrir lobby da sessão</button> : <p>Aguarde o mestre abrir a sessão.</p>}</section>;
-  return <section className="live-room"><header className="live-top"><div><p className="live-kicker">Sessão da campanha</p><h2>{isMaster ? "Escudo do Mestre" : "Sala da campanha"}</h2></div></header><div className={`live-layout ${isMaster ? "master" : "player"}`}><Stage session={session} members={members} /><aside className="live-sheet"><p className="live-kicker">{isMaster ? "Direção" : "Sua ficha"}</p><h3>{character?.nome ?? "Sem personagem"}</h3><p className="live-help">A grade é compartilhada: cada jogador recebe o próximo quadro livre.</p></aside></div><section className="live-controls"><div><p className="live-kicker">Sua câmera</p><p className="live-help">Entre para reservar seu quadro na grade.</p></div><button className="live-primary" disabled={busy} onClick={() => void enter()}>{streamId ? "Reconectar câmera" : "Entrar com câmera"}</button></section>{notice && <p className="live-notice">{notice}</p>}</section>;
+  return <section className="live-room"><header className="live-top"><div><p className="live-kicker">Sessão da campanha</p><h2>{isMaster ? "Escudo do Mestre" : "Sala da campanha"}</h2></div></header><div className={`live-layout ${isMaster ? "master" : "player"}`}><Stage session={session} members={members} /><aside className="live-sheet"><p className="live-kicker">{isMaster ? "Direção" : "Sua ficha"}</p><h3>{character?.nome ?? "Sem personagem"}</h3><p className="live-help">A grade é compartilhada: cada jogador recebe o próximo quadro livre.</p>{isMaster && <div className="live-master-sources"><p className="live-kicker">Fontes do tabletop</p><button disabled={sourceBusy} type="button" onClick={() => void openMasterSource("obs")}>Tabletop pelo OBS</button><button disabled={sourceBusy} type="button" onClick={() => void openMasterSource("screen")}>Compartilhar tela</button></div>}</aside></div><section className="live-controls"><div><p className="live-kicker">Sua câmera</p><p className="live-help">Entre para reservar seu quadro na grade.</p></div><button className="live-primary" disabled={busy} onClick={() => void enter()}>{streamId ? "Reconectar câmera" : "Entrar com câmera"}</button></section><SessionMusicPlayer music={session.layout.music ?? null} isMaster={isMaster} onUpdate={updateMusic} />{notice && <p className="live-notice">{notice}</p>}</section>;
 }
