@@ -5,13 +5,60 @@ import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase/client";
 import Icon, { ICONS, type IconName } from "./Icon";
 
-type SistemaKey = "purgatum" | "ordem" | "dnd" | "outro";
+type SistemaKey = "purgatum" | "ordem" | "dnd" | "deprac" | "outro";
 const systems: Record<SistemaKey, { atributos: string[] }> = {
   purgatum: { atributos: ["Força", "Agilidade", "Vitalidade", "Corrupção"] },
   ordem: { atributos: ["Força", "Agilidade", "Intelecto", "Presença"] },
   dnd: { atributos: ["STR", "DEX", "CON", "INT", "WIS", "CHA"] },
+  deprac: { atributos: [] },
   outro: { atributos: ["Atributo 1", "Atributo 2"] },
 };
+
+const DEPRAC_SKILLS = [
+  "Investigação", "Observação", "Percepção", "Rastreamento", "Arrombamento", "Pesquisa",
+  "Ocultismo", "Visitantes", "Relíquias", "Contenção", "Combate", "Esgrima", "Pontaria",
+  "Furtividade", "Atletismo", "Reflexos", "Resistência", "Primeiros Socorros", "Tecnologia",
+  "Mecânica", "Persuasão", "Enganação", "Intimidação", "Empatia", "Liderança", "História",
+] as const;
+const DEPRAC_DICE = [4, 6, 8, 10] as const;
+type DepracSkill = (typeof DEPRAC_SKILLS)[number];
+type DepracDie = (typeof DEPRAC_DICE)[number];
+type DepracFormation = "formed" | "incomplete";
+type DepracSheet = {
+  agency: string;
+  codename: string;
+  agentNumber: string;
+  age: string;
+  registrationDate: string;
+  psychicTalent: "" | "Visão" | "Audição" | "Tato";
+  observedTalent: string;
+  formation: DepracFormation;
+  dominantTalent: "Visão" | "Audição" | "Tato" | "";
+  vitality: string;
+  condition: string;
+  stress: string;
+  psychicExposure: string;
+  ghostTouchIncidents: string;
+  skills: Record<DepracSkill, DepracDie>;
+  equipment: { name: string; quantity: string; notes: string; slots: number }[];
+};
+
+const createDepracSkills = (): Record<DepracSkill, DepracDie> => Object.fromEntries(
+  DEPRAC_SKILLS.map((skill) => [skill, 4])
+) as Record<DepracSkill, DepracDie>;
+
+const createDepracSheet = (): DepracSheet => ({
+  agency: "", codename: "", agentNumber: "", age: "", registrationDate: "",
+  psychicTalent: "", observedTalent: "",
+  formation: "formed", dominantTalent: "", vitality: "", condition: "", stress: "",
+  psychicExposure: "", ghostTouchIncidents: "", skills: createDepracSkills(),
+  equipment: [
+    { name: "Rapieira", quantity: "1", notes: "", slots: 2 },
+    { name: "Lanterna", quantity: "1", notes: "", slots: 1 },
+    { name: "Kit de sal", quantity: "1", notes: "", slots: 1 },
+    { name: "", quantity: "", notes: "", slots: 0 },
+  ],
+});
 
 
 
@@ -52,6 +99,7 @@ type CharacterForm = {
   sistema: SistemaKey;
   atributos: Record<string, number>;
   foto: string;
+  deprac: DepracSheet;
 };
 
 const createEmptyForm = (): CharacterForm => ({
@@ -64,6 +112,7 @@ const createEmptyForm = (): CharacterForm => ({
   sistema: "purgatum",
   atributos: {},
   foto: "",
+  deprac: createDepracSheet(),
 });
 
 /* Avatares disponíveis para seleção — usam ícones de fantasia (RPG-Awesome) */
@@ -107,12 +156,32 @@ export default function PersonagensPage() {
   const [saving,       setSaving]       = useState(false);
   const [deletingId,   setDeletingId]   = useState<string | null>(null);
   const [selectedChar, setSelectedChar] = useState<Personagem | null>(null);
+  const [depracRoll, setDepracRoll] = useState<{ skill: string; die: number; value: number } | null>(null);
 
   const [form, setForm] = useState<CharacterForm>(createEmptyForm);
   const [portraitFile, setPortraitFile] = useState<File | null>(null);
   const [saveError, setSaveError] = useState("");
   const displayName = user?.user_metadata?.username ?? user?.user_metadata?.full_name ?? user?.email?.split("@")[0];
   const avatarUrl = user?.user_metadata?.avatar_url;
+  const depracDiceCounts = DEPRAC_DICE.reduce((counts, die) => {
+    counts[die] = Object.values(form.deprac.skills).filter((value) => value === die).length;
+    return counts;
+  }, {} as Record<DepracDie, number>);
+  const depracDistributionValid = form.deprac.formation === "formed"
+    ? depracDiceCounts[8] === 2 && depracDiceCounts[6] === 3 && depracDiceCounts[10] === 0
+    : depracDiceCounts[10] === 1 && depracDiceCounts[8] === 2 && depracDiceCounts[6] === 0 && Boolean(form.deprac.dominantTalent);
+  const depracSlotsUsed = form.deprac.equipment.reduce((total, item) => total + item.slots * (Number(item.quantity) || 0), 0);
+
+  const updateDepracSkill = (skill: DepracSkill, die: DepracDie) => {
+    setForm((previous) => ({
+      ...previous,
+      deprac: { ...previous.deprac, skills: { ...previous.deprac.skills, [skill]: die } },
+    }));
+  };
+
+  const rollDepracSkill = (skill: DepracSkill, die: DepracDie) => {
+    setDepracRoll({ skill, die, value: Math.floor(Math.random() * die) + 1 });
+  };
 
   const fetchPersonagens = async () => {
     const { data, error } = await supabase
@@ -152,6 +221,14 @@ export default function PersonagensPage() {
 
   const handleSave = async () => {
     if (!form.nome.trim()) return;
+    if (form.sistema === "deprac" && !depracDistributionValid) {
+      setSaveError("Distribua as perícias conforme a formação escolhida antes de salvar.");
+      return;
+    }
+    if (form.sistema === "deprac" && depracSlotsUsed > 8) {
+      setSaveError("A mochila DEPRAC suporta no máximo 8 espaços.");
+      return;
+    }
     setSaving(true);
     setSaveError("");
     try {
@@ -179,7 +256,7 @@ export default function PersonagensPage() {
         descricao: form.descricao,
         avatar: form.avatar,
         sistema: form.sistema,
-        atributos: form.atributos,
+        atributos: form.sistema === "deprac" ? { deprac: form.deprac } : form.atributos,
         foto_url: photoUrl,
       });
       if (error) throw error;
@@ -227,6 +304,24 @@ export default function PersonagensPage() {
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: #0a0303; }
         ::-webkit-scrollbar-thumb { background: #5a1010; border-radius: 2px; }
+        .deprac-section{grid-column:1/-1;border-top:1px solid rgba(100,20,20,.4);padding-top:1.25rem;margin-top:.35rem}
+        .deprac-title{font-family:'Cinzel',serif;font-size:.72rem;letter-spacing:.16em;color:#cc1a1a;margin-bottom:1rem}
+        .deprac-help{font-size:.86rem;color:#8a6060;margin:-.55rem 0 1rem;line-height:1.35}
+        .deprac-skills{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:.55rem}
+        .deprac-skill{display:flex;align-items:center;justify-content:space-between;gap:.5rem;padding:.5rem .65rem;background:rgba(5,1,1,.7);border:1px solid rgba(80,15,15,.35);font-size:.82rem;color:#c8b8b8}
+        .deprac-skill select{background:#120505;color:#e0d4d4;border:1px solid rgba(140,30,30,.5);padding:.25rem}
+        .deprac-status{grid-column:1/-1;padding:.65rem .8rem;border:1px solid rgba(180,30,30,.35);font-size:.86rem;color:#c8b8b8}
+        .deprac-status.invalid{color:#ff8a8a;border-color:rgba(220,60,60,.7)}
+        .deprac-overload{color:#ff8a8a}
+        .deprac-equipment{display:grid;gap:.5rem}
+        .deprac-equipment-row{display:grid;grid-template-columns:1.1fr 72px 88px 1.5fr;gap:.45rem}
+        .deprac-qty{text-align:center}
+        .deprac-add-item{margin-top:.7rem;background:transparent;border:1px solid rgba(150,30,30,.5);color:#dba0a0;padding:.45rem .75rem;cursor:pointer;font-family:'Cinzel',serif;font-size:.68rem;letter-spacing:.08em}
+        .deprac-rolls{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.5rem;margin-top:1rem}
+        .deprac-roll{display:flex;justify-content:space-between;align-items:center;gap:.5rem;background:#130505;border:1px solid rgba(130,25,25,.45);padding:.5rem .65rem;color:#d8c4c4;font:inherit;cursor:pointer}
+        .deprac-roll strong{color:#dc3434}
+        .deprac-result{margin-top:1rem;padding:.8rem;border:1px solid rgba(200,35,35,.6);background:rgba(90,10,10,.18);color:#f2dede}
+        @media(max-width:620px){.deprac-equipment-row{grid-template-columns:1fr 70px 78px}.deprac-equipment-row input:last-child{grid-column:1/-1}}
       `}</style>
 
       <style>{`
@@ -451,12 +546,14 @@ export default function PersonagensPage() {
   gap: 1rem;
 }
 
-.preview-image {
-  width: 100%;
-  max-width: 200px;
-  border: 2px solid #6a0dad;
-  margin-top: 10px;
-}
+        .portrait-picker{display:flex;align-items:center;gap:1rem;padding:1rem;border:1px dashed rgba(160,35,35,.55);background:rgba(35,5,5,.35)}
+        .portrait-preview{width:86px;height:86px;display:grid;place-items:center;overflow:hidden;border:1px solid rgba(180,35,35,.55);background:#120505;color:#813030;font-size:2.4rem;flex-shrink:0}
+        .portrait-preview img{width:100%;height:100%;object-fit:cover}
+        .portrait-copy{display:grid;gap:.35rem;min-width:0}
+        .portrait-copy strong{font-family:'Cinzel',serif;font-size:.72rem;letter-spacing:.09em;color:#dfcaca}
+        .portrait-copy span{font-size:.84rem;color:#8a6060}
+        .portrait-upload-btn{width:max-content;margin-top:.3rem;padding:.45rem .7rem;border:1px solid rgba(180,35,35,.65);background:rgba(100,10,10,.4);color:#f0dada;cursor:pointer;font-family:'Cinzel',serif;font-size:.63rem;letter-spacing:.08em}
+        .portrait-input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
       `}</style>
 
       <div className="root">
@@ -531,6 +628,7 @@ export default function PersonagensPage() {
                     <option value="purgatum">Purgatum</option>
                     <option value="ordem">Ordem Paranormal</option>
                     <option value="dnd">D&D</option>
+                    <option value="deprac">DEPRAC - O Problema</option>
                     <option value="outro">Outro</option>
                   </select>
                 </div>
@@ -553,6 +651,13 @@ export default function PersonagensPage() {
                     />
                   </div>
 
+                  {form.sistema === "deprac" ? <>
+                    <div className="form-group"><label className="form-label">Agência / Afiliação</label><input className="form-input" value={form.deprac.agency} onChange={e => setForm(p => ({ ...p, deprac: { ...p.deprac, agency: e.target.value } }))} /></div>
+                    <div className="form-group"><label className="form-label">Codinome</label><input className="form-input" value={form.deprac.codename} onChange={e => setForm(p => ({ ...p, deprac: { ...p.deprac, codename: e.target.value } }))} /></div>
+                    <div className="form-group"><label className="form-label">Número do agente</label><input className="form-input" value={form.deprac.agentNumber} onChange={e => setForm(p => ({ ...p, deprac: { ...p.deprac, agentNumber: e.target.value } }))} /></div>
+                    <div className="form-group"><label className="form-label">Idade</label><input type="number" min="1" className="form-input" value={form.deprac.age} onChange={e => setForm(p => ({ ...p, deprac: { ...p.deprac, age: e.target.value } }))} /></div>
+                    <div className="form-group full"><label className="form-label">Data de registro</label><input type="date" className="form-input" value={form.deprac.registrationDate} onChange={e => setForm(p => ({ ...p, deprac: { ...p.deprac, registrationDate: e.target.value } }))} /></div>
+                  </> : <>
                   {/* Classe */}
                   <div className="form-group">
                     <label className="form-label">Classe</label>
@@ -568,6 +673,7 @@ export default function PersonagensPage() {
                       {RACAS.map(r => <option key={r} value={r}>{r}</option>)}
                     </select>
                   </div>
+                  </>}
 
                   {/* Avatar */}
                   <div className="form-group full">
@@ -588,7 +694,14 @@ export default function PersonagensPage() {
                   </div>
 
                   {/* Nível */}
-                  <div className="atributos-grid">
+                  {form.sistema === "deprac" ? (
+                    <>
+                      <div className="deprac-section"><p className="deprac-title">02 // Talento psíquico</p><div className="form-grid"><div className="form-group"><label className="form-label">Talento</label><select className="form-select" value={form.deprac.psychicTalent} onChange={e => setForm(p => ({ ...p, deprac: { ...p.deprac, psychicTalent: e.target.value as DepracSheet["psychicTalent"] } }))}><option value="">Selecione um talento</option><option value="Visão">Visão</option><option value="Audição">Audição</option><option value="Tato">Tato</option></select></div></div></div>
+                      <div className="deprac-section"><p className="deprac-title">03 // Estado operacional</p><div className="form-grid"><div className="form-group"><label className="form-label">Vitalidade</label><input className="form-input" placeholder="Ex.: 8/8" value={form.deprac.vitality} onChange={e => setForm(p => ({ ...p, deprac: { ...p.deprac, vitality: e.target.value } }))} /></div><div className="form-group"><label className="form-label">Condição atual</label><input className="form-input" value={form.deprac.condition} onChange={e => setForm(p => ({ ...p, deprac: { ...p.deprac, condition: e.target.value } }))} /></div><div className="form-group"><label className="form-label">Estresse / Sanidade</label><input className="form-input" placeholder="Ex.: 2/10" value={form.deprac.stress} onChange={e => setForm(p => ({ ...p, deprac: { ...p.deprac, stress: e.target.value } }))} /></div><div className="form-group"><label className="form-label">Exposição psíquica</label><input className="form-input" value={form.deprac.psychicExposure} onChange={e => setForm(p => ({ ...p, deprac: { ...p.deprac, psychicExposure: e.target.value } }))} /></div><div className="form-group full"><label className="form-label">Incidentes de ghost-touch</label><input className="form-input" value={form.deprac.ghostTouchIncidents} onChange={e => setForm(p => ({ ...p, deprac: { ...p.deprac, ghostTouchIncidents: e.target.value } }))} /></div></div></div>
+                      <div className="deprac-section"><p className="deprac-title">04 // Competências e treinamento</p><div className="form-group"><label className="form-label">Formação</label><select className="form-select" value={form.deprac.formation} onChange={e => setForm(p => ({ ...p, deprac: { ...p.deprac, formation: e.target.value as DepracFormation, dominantTalent: "", skills: createDepracSkills() } }))}><option value="formed">Agente formado - 2 d8 e 3 d6</option><option value="incomplete">Agente incompleto / Prodígio - 1 d10 e 2 d8</option></select></div>{form.deprac.formation === "incomplete" && <div className="form-group"><label className="form-label">Talento dominante (Prodígio)</label><select className="form-select" value={form.deprac.dominantTalent} onChange={e => setForm(p => ({ ...p, deprac: { ...p.deprac, dominantTalent: e.target.value as DepracSheet["dominantTalent"] } }))}><option value="">Selecione</option><option value="Visão">Visão</option><option value="Audição">Audição</option><option value="Tato">Tato</option></select></div>}<p className="deprac-help">Todas começam em d4. d12 e d20 só podem ser obtidos durante o jogo.</p><div className={`deprac-status ${depracDistributionValid ? "" : "invalid"}`}>Distribuição: d6 {depracDiceCounts[6]} · d8 {depracDiceCounts[8]} · d10 {depracDiceCounts[10]} · {depracDistributionValid ? "pronta" : "incompleta"}</div><div className="deprac-skills">{DEPRAC_SKILLS.map(skill => <label className="deprac-skill" key={skill}><span>{skill}</span><select value={form.deprac.skills[skill]} onChange={e => updateDepracSkill(skill, Number(e.target.value) as DepracDie)}>{DEPRAC_DICE.map(die => <option key={die} value={die}>d{die}</option>)}</select></label>)}</div></div>
+                      <div className="deprac-section"><p className="deprac-title">05 // Equipamento autorizado</p><p className={`deprac-help ${depracSlotsUsed > 8 ? "deprac-overload" : ""}`}>Capacidade ocupada: {depracSlotsUsed}/8 espaços</p><div className="deprac-equipment">{form.deprac.equipment.map((item, index) => <div className="deprac-equipment-row" key={index}><input className="form-input" placeholder="Item" value={item.name} onChange={e => setForm(p => ({ ...p, deprac: { ...p.deprac, equipment: p.deprac.equipment.map((entry, itemIndex) => itemIndex === index ? { ...entry, name: e.target.value } : entry) } }))} /><input className="form-input deprac-qty" type="number" min="0" placeholder="Qtd." value={item.quantity || ""} onChange={e => setForm(p => ({ ...p, deprac: { ...p.deprac, equipment: p.deprac.equipment.map((entry, itemIndex) => itemIndex === index ? { ...entry, quantity: e.target.value } : entry) } }))} /><input className="form-input deprac-qty" type="number" min="0" placeholder="Espaços" value={item.slots || ""} onChange={e => setForm(p => ({ ...p, deprac: { ...p.deprac, equipment: p.deprac.equipment.map((entry, itemIndex) => itemIndex === index ? { ...entry, slots: Math.max(0, Number(e.target.value)) } : entry) } }))} /><input className="form-input" placeholder="Condição / observações" value={item.notes} onChange={e => setForm(p => ({ ...p, deprac: { ...p.deprac, equipment: p.deprac.equipment.map((entry, itemIndex) => itemIndex === index ? { ...entry, notes: e.target.value } : entry) } }))} /></div>)}</div><button type="button" className="deprac-add-item" onClick={() => setForm(p => ({ ...p, deprac: { ...p.deprac, equipment: [...p.deprac.equipment, { name: "", quantity: "1", notes: "", slots: 0 }] } }))}>+ Adicionar item</button></div>
+                    </>
+                  ) : (<div className="atributos-grid">
   {systems[form.sistema].atributos.map((attr) => (
     <div key={attr} className="form-group">
       <label className="form-label">{attr}</label>
@@ -607,38 +720,43 @@ export default function PersonagensPage() {
       />
     </div>
   ))}
-</div>
+</div>)}
 
-                  <div className="form-group">
-  <label className="form-label">Retrato do Personagem</label>
-  <input
-    type="file"
-    accept="image/*"
-    onChange={(e) => {
-      const file = e.target.files?.[0];
-      if (file) {
-        if (file.size > MAX_PORTRAIT_SIZE_BYTES) {
-          setPortraitFile(null);
-          setForm((prev) => ({ ...prev, foto: "" }));
-          setSaveError("O retrato deve ter no máximo 2 MB.");
-          e.target.value = "";
-          return;
-        }
-        setPortraitFile(file);
-        setSaveError("");
-        setForm((prev) => ({ ...prev, foto: URL.createObjectURL(file) }));
-      }
-    }}
-  />
-</div>
-
-{form.foto && (
-  <img
-    src={form.foto}
-    className="preview-image"
-    alt="preview"
-  />
-)}
+                  <div className="form-group full">
+                    <label className="form-label">Retrato do personagem</label>
+                    <div className="portrait-picker">
+                      <div className="portrait-preview">
+                        {form.foto ? <img src={form.foto} alt="Prévia do retrato" /> : <Icon name={form.avatar} />}
+                      </div>
+                      <div className="portrait-copy">
+                        <strong>{form.foto ? "Retrato selecionado" : "Nenhum retrato selecionado"}</strong>
+                        <span>{form.foto ? portraitFile?.name : "Use uma imagem para identificar o personagem."}</span>
+                        <span>PNG, JPG ou WEBP · até 2 MB</span>
+                        <label className="portrait-upload-btn" htmlFor="portrait-upload">{form.foto ? "Trocar imagem" : "Escolher imagem"}</label>
+                      </div>
+                    </div>
+                    <input
+                      id="portrait-upload"
+                      className="portrait-input"
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          if (file.size > MAX_PORTRAIT_SIZE_BYTES) {
+                            setPortraitFile(null);
+                            setForm((prev) => ({ ...prev, foto: "" }));
+                            setSaveError("O retrato deve ter no máximo 2 MB.");
+                            e.target.value = "";
+                            return;
+                          }
+                          setPortraitFile(file);
+                          setSaveError("");
+                          setForm((prev) => ({ ...prev, foto: URL.createObjectURL(file) }));
+                        }
+                      }}
+                    />
+                  </div>
 
                   {/* Descrição */}
                   <div className="form-group full">
@@ -723,10 +841,19 @@ export default function PersonagensPage() {
                 ? <div className="modal-desc">"{selectedChar.descricao}"</div>
                 : <div className="modal-desc" style={{ color: "#3a2020" }}>Sem história registrada ainda...</div>
               }
+              {getDepracSheet(selectedChar) && (() => {
+                const sheet = getDepracSheet(selectedChar)!;
+                return <div className="deprac-section"><p className="deprac-title">Rolagem de competências</p><p className="deprac-help">Clique em uma competência para rolar o dado registrado na ficha.</p><div className="deprac-rolls">{DEPRAC_SKILLS.map(skill => <button className="deprac-roll" type="button" key={skill} onClick={() => rollDepracSkill(skill, sheet.skills[skill])}><span>{skill}</span><strong>d{sheet.skills[skill]}</strong></button>)}</div>{depracRoll && <div className="deprac-result">{depracRoll.skill}: <strong>{depracRoll.value}</strong> em d{depracRoll.die}{depracRoll.value === depracRoll.die ? " — crítico!" : ""}</div>}</div>;
+              })()}
             </div>
           </div>
         </div>
       )}
     </>
   );
+}
+
+function getDepracSheet(character: Personagem): DepracSheet | null {
+  if (character.sistema !== "deprac") return null;
+  return (character.atributos as { deprac?: DepracSheet }).deprac ?? null;
 }

@@ -1,11 +1,5 @@
-import Navbar from "@/components/Navbar";
-import Herosection from "@/components/HeroSection";
+import CampaignsClient from "@/components/CampaignsClient";
 
-export default function Home() {
-  return (
-    <main className="bg-black min-h-screen">
-      <Navbar />
-      <Herosection />
-    </main>
-  );
+export default function CampaignsPage() {
+  return <CampaignsClient />;
 }

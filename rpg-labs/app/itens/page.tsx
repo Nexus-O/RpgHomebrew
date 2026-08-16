@@ -1,11 +1,5 @@
-import Navbar from "@/components/Navbar";
-import Herosection from "@/components/HeroSection";
+import ModulePlaceholder from "@/components/ModulePlaceholder";
 
-export default function Home() {
-  return (
-    <main className="bg-black min-h-screen">
-      <Navbar />
-      <Herosection />
-    </main>
-  );
+export default function ItemsPage() {
+  return <ModulePlaceholder icon="itens" eyebrow="Arsenal compartilhado" title="Itens" description="Um espaço para organizar relíquias, armas, consumíveis e o inventário do seu mundo." nextStep="conectar o catálogo e os itens de campanha ao Supabase." />;
 }

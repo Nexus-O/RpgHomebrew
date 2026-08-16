@@ -1,11 +1,5 @@
-import Navbar from "@/components/Navbar";
-import Herosection from "@/components/HeroSection";
+import ProfileClient from "@/components/ProfileClient";
 
-export default function Home() {
-  return (
-    <main className="bg-black min-h-screen">
-      <Navbar />
-      <Herosection />
-    </main>
-  );
+export default function ProfilePage() {
+  return <ProfileClient />;
 }
