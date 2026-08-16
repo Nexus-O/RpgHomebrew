@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Icon, { type IconName } from "@/components/Icon";
+import { useEffect, useRef, useState } from "react";
+import Icon from "@/components/Icon";
 import { supabase } from "@/lib/supabase/client";
 
 type Session = { id: string; room_key: string; layout: { tabletop_stream_id?: string } };
@@ -10,15 +10,13 @@ type Member = { user_id: string; stream_id: string; nome: string | null; avatar:
 const VDO = "https://vdo.ninja";
 const allow = "camera; microphone; autoplay; fullscreen; display-capture";
 const makeId = (prefix: string) => `${prefix}${Array.from(crypto.getRandomValues(new Uint8Array(18)), value => "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[value % 32]).join("")}`;
-const roomId = (session: Session) => session.room_key.replace(/[^a-z0-9]/gi, "");
-const publishUrl = (session: Session, id: string) => `${VDO}/?room=${roomId(session)}&push=${id}&webcam&autostart&cleanoutput`;
 const viewUrl = (id: string) => `${VDO}/?view=${id}&cleanviewer&nocontrols&autoplay&transparent`;
 
 function Stage({ session, members, ownStreamId, ownUserId }: { session: Session; members: Member[]; ownStreamId: string | null; ownUserId: string }) {
   const own = ownStreamId ? { user_id: ownUserId, stream_id: ownStreamId, nome: "Você", avatar: "usuario", foto_url: null } : null;
   const participants = own && !members.some(member => member.user_id === ownUserId) ? [own, ...members] : members;
   const slots = Array.from({ length: 7 }, (_, index) => participants[index]);
-  return <article className="live-stage"><div className="live-stage-bar"><span>Palco da mesa</span><div className="live-stage-actions"><small>Grade</small><button className="live-fullscreen" type="button" onClick={(event) => void event.currentTarget.closest(".live-stage")?.requestFullscreen()} aria-label="Abrir palco em tela cheia">⛶</button></div></div><div className="live-grid-stage"><img className="live-grid-art" src="/grade.png" alt="Moldura da transmissão" /><div className="live-tabletop">{session.layout.tabletop_stream_id ? <iframe title="Tabletop" src={viewUrl(session.layout.tabletop_stream_id)} allow={allow} /> : <div className="live-tabletop-empty"><Icon name="mapa" /><span>Tabletop aguardando conexão do mestre</span></div>}</div><div className="live-camera-slots">{slots.map((member, index) => <div className="live-camera-slot" key={member?.user_id ?? index}>{member ? <iframe title={`Câmera de ${member.nome ?? "participante"}`} src={member.user_id === ownUserId && ownStreamId ? publishUrl(session, ownStreamId) : viewUrl(member.stream_id)} allow={allow} /> : <span>Aguardando</span>}</div>)}</div></div></article>;
+  return <article className="live-stage"><div className="live-stage-bar"><span>Palco da mesa</span><div className="live-stage-actions"><small>Grade</small><button className="live-fullscreen" type="button" onClick={(event) => void event.currentTarget.closest(".live-stage")?.requestFullscreen()} aria-label="Abrir palco em tela cheia">⛶</button></div></div><div className="live-grid-stage"><img className="live-grid-art" src="/grade.png" alt="Moldura da transmissão" /><div className="live-tabletop">{session.layout.tabletop_stream_id ? <iframe title="Tabletop" src={viewUrl(session.layout.tabletop_stream_id)} allow={allow} /> : <div className="live-tabletop-empty"><Icon name="mapa" /><span>Tabletop aguardando conexão do mestre</span></div>}</div><div className="live-camera-slots">{slots.map((member, index) => <div className="live-camera-slot" key={member?.user_id ?? index}>{member ? <iframe title={`Câmera de ${member.nome ?? "participante"}`} src={viewUrl(member.stream_id)} allow={allow} /> : <span>Aguardando</span>}</div>)}</div></div></article>;
 }
 
 export default function CampaignSessionRoom({ campaignId, userId, isMaster }: { campaignId: string; userId: string; isMaster: boolean }) {
@@ -28,6 +26,7 @@ export default function CampaignSessionRoom({ campaignId, userId, isMaster }: { 
   const [streamId, setStreamId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
+  const joinedAt = useRef(Date.now());
 
   const refresh = async () => {
     const [{ data: activeSession, error: sessionError }, { data: ownCharacter, error: characterError }] = await Promise.all([
@@ -38,8 +37,12 @@ export default function CampaignSessionRoom({ campaignId, userId, isMaster }: { 
     setSession(activeSession as Session | null);
     setCharacter(ownCharacter as Character | null);
     if (activeSession) {
-      const { data, error } = await supabase.rpc("session_stage_roster", { target_session_id: activeSession.id });
-      if (!error) setMembers((data ?? []) as Member[]);
+      const { data } = await supabase.from("campaign_session_participants").select("stream_id, joined_at").eq("session_id", activeSession.id).eq("user_id", userId).is("left_at", null).maybeSingle();
+      if (data?.stream_id) {
+        const persistedJoinTime = Date.parse(data.joined_at);
+        if (Number.isFinite(persistedJoinTime)) joinedAt.current = persistedJoinTime;
+        setStreamId(data.stream_id);
+      }
     }
   };
 
@@ -54,13 +57,17 @@ export default function CampaignSessionRoom({ campaignId, userId, isMaster }: { 
     const channel = supabase.channel(`campaign-stage-${session.id}`, { config: { presence: { key: userId } } });
     channel.on("presence", { event: "sync" }, () => {
       const nextMembers = Object.values(channel.presenceState<Member>()).flat().map(({ user_id, stream_id, nome, avatar, foto_url, joined_at }) => ({ user_id, stream_id, nome, avatar, foto_url, joined_at }));
-      setMembers(nextMembers.filter(member => member.stream_id).sort((a, b) => (a.joined_at ?? 0) - (b.joined_at ?? 0)));
+      const membersByUser = new Map<string, Member>();
+      for (const member of nextMembers) {
+        if (member.stream_id) membersByUser.set(member.user_id, member);
+      }
+      setMembers([...membersByUser.values()].sort((a, b) => (a.joined_at ?? Number.MAX_SAFE_INTEGER) - (b.joined_at ?? Number.MAX_SAFE_INTEGER) || a.user_id.localeCompare(b.user_id)));
     });
     channel.subscribe(status => {
-      if (status === "SUBSCRIBED" && streamId) void channel.track({ user_id: userId, stream_id: streamId, nome: character?.nome ?? "Jogador", avatar: character?.avatar ?? "usuario", foto_url: character?.foto_url ?? null, joined_at: Date.now() });
+      if (status === "SUBSCRIBED" && streamId) void channel.track({ user_id: userId, stream_id: streamId, nome: character?.nome ?? "Jogador", avatar: character?.avatar ?? "usuario", foto_url: character?.foto_url ?? null, joined_at: joinedAt.current });
     });
     return () => { void supabase.removeChannel(channel); };
-  }, [character, session, streamId, userId]);
+  }, [character?.avatar, character?.foto_url, character?.nome, session?.id, streamId, userId]);
 
   const createSession = async () => {
     setBusy(true);
@@ -73,9 +80,15 @@ export default function CampaignSessionRoom({ campaignId, userId, isMaster }: { 
     if (!session) return;
     setBusy(true);
     const nextStreamId = streamId ?? makeId("cam");
-    const { error } = await supabase.from("campaign_session_participants").upsert({ session_id: session.id, user_id: userId, character_id: character?.id ?? null, stream_id: nextStreamId, left_at: null });
+    const { data, error } = await supabase.from("campaign_session_participants").upsert({ session_id: session.id, user_id: userId, character_id: character?.id ?? null, stream_id: nextStreamId, left_at: null }).select("joined_at").single();
     setBusy(false);
-    if (error) setNotice(error.message); else { setStreamId(nextStreamId); void refresh(); }
+    if (error) setNotice(error.message); else {
+      const persistedJoinTime = Date.parse(data.joined_at);
+      if (Number.isFinite(persistedJoinTime)) joinedAt.current = persistedJoinTime;
+      setStreamId(nextStreamId);
+      const cameraWindow = window.open(`/transmissao/${session.id}?stream=${encodeURIComponent(nextStreamId)}`, `nexus-camera-${session.id}`, "popup,width=720,height=620");
+      if (!cameraWindow) setNotice("O navegador bloqueou a janela da câmera. Libere pop-ups para este site e tente novamente.");
+    }
   };
 
   if (!session) return <section className="live-empty"><Icon name="dados" /><h2>Nenhuma sessão aberta</h2>{isMaster ? <button className="live-primary" disabled={busy} onClick={() => void createSession()}>Abrir lobby da sessão</button> : <p>Aguarde o mestre abrir a sessão.</p>}</section>;
