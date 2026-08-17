@@ -100,6 +100,8 @@ type CharacterForm = {
   atributos: Record<string, number>;
   foto: string;
   deprac: DepracSheet;
+  vidaBase: number;
+  sanidadeBase: number;
 };
 
 const createEmptyForm = (): CharacterForm => ({
@@ -113,6 +115,8 @@ const createEmptyForm = (): CharacterForm => ({
   atributos: {},
   foto: "",
   deprac: createDepracSheet(),
+  vidaBase: 10,
+  sanidadeBase: 10,
 });
 
 /* Avatares disponíveis para seleção — usam ícones de fantasia (RPG-Awesome) */
@@ -246,6 +250,15 @@ export default function PersonagensPage() {
         photoUrl = supabase.storage.from("character-portraits").getPublicUrl(path).data.publicUrl;
       }
 
+      const sessionVitals = {
+        vida_atual: form.vidaBase,
+        vida_base: form.vidaBase,
+        sanidade_atual: form.sanidadeBase,
+        sanidade_base: form.sanidadeBase,
+      };
+      const characterAttributes = form.sistema === "deprac"
+        ? { deprac: { ...form.deprac, vitality: `${form.vidaBase}/${form.vidaBase}`, stress: `${form.sanidadeBase}/${form.sanidadeBase}` }, _session: sessionVitals }
+        : { ...form.atributos, _session: sessionVitals };
       const { error } = await supabase.from("characters").insert({
         id: characterId,
         user_id: user.id,
@@ -256,8 +269,9 @@ export default function PersonagensPage() {
         descricao: form.descricao,
         avatar: form.avatar,
         sistema: form.sistema,
-        atributos: form.sistema === "deprac" ? { deprac: form.deprac } : form.atributos,
+        atributos: characterAttributes,
         foto_url: photoUrl,
+        ...sessionVitals,
       });
       if (error) throw error;
       await fetchPersonagens();
@@ -756,6 +770,16 @@ export default function PersonagensPage() {
                         }
                       }}
                     />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Vida base</label>
+                    <input type="number" min="0" className="form-input" value={form.vidaBase} onChange={event => setForm(previous => ({ ...previous, vidaBase: Math.max(0, Number(event.target.value)) }))} />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Sanidade base</label>
+                    <input type="number" min="0" className="form-input" value={form.sanidadeBase} onChange={event => setForm(previous => ({ ...previous, sanidadeBase: Math.max(0, Number(event.target.value)) }))} />
                   </div>
 
                   {/* Descrição */}

@@ -27,18 +27,45 @@ type CharacterData = {
   avatar: string | null;
   foto_url: string | null;
   atributos: Record<string, unknown> | null;
+  vida_atual?: number;
+  vida_base?: number;
+  sanidade_atual?: number;
+  sanidade_base?: number;
 };
 
 const textValue = (value: unknown) => value === null || value === undefined || value === "" ? "—" : String(value);
 
-function characterStats(atributos: Record<string, unknown> | null | undefined) {
+function characterStats(character: CharacterData | null | undefined) {
+  const atributos = character?.atributos;
   const deprac = atributos?.deprac && typeof atributos.deprac === "object"
     ? atributos.deprac as Record<string, unknown>
     : null;
+  const session = atributos?._session && typeof atributos._session === "object"
+    ? atributos._session as Record<string, unknown>
+    : null;
+  const vidaAtual = character?.vida_atual ?? session?.vida_atual;
+  const vidaBase = character?.vida_base ?? session?.vida_base;
+  const sanidadeAtual = character?.sanidade_atual ?? session?.sanidade_atual;
+  const sanidadeBase = character?.sanidade_base ?? session?.sanidade_base;
   return {
-    vida: textValue(deprac?.vitality ?? atributos?.Vitalidade ?? atributos?.Vida),
-    sanidade: textValue(deprac?.stress ?? atributos?.Sanidade ?? atributos?.Corrupção),
+    vida: vidaAtual !== undefined && vidaBase !== undefined ? `${textValue(vidaAtual)}/${textValue(vidaBase)}` : textValue(deprac?.vitality ?? atributos?.Vitalidade ?? atributos?.Vida),
+    sanidade: sanidadeAtual !== undefined && sanidadeBase !== undefined ? `${textValue(sanidadeAtual)}/${textValue(sanidadeBase)}` : textValue(deprac?.stress ?? atributos?.Sanidade ?? atributos?.Corrupção),
   };
+}
+
+async function loadCharacter(characterId: string) {
+  const current = await supabase
+    .from("characters")
+    .select("nome, avatar, foto_url, atributos, vida_atual, vida_base, sanidade_atual, sanidade_base")
+    .eq("id", characterId)
+    .maybeSingle<CharacterData>();
+  if (!current.error) return current.data;
+  const legacy = await supabase
+    .from("characters")
+    .select("nome, avatar, foto_url, atributos")
+    .eq("id", characterId)
+    .maybeSingle<CharacterData>();
+  return legacy.data;
 }
 
 function CharacterPortrait({ member }: { member: CameraMember }) {
@@ -71,12 +98,12 @@ export default function CameraPublisher({ sessionId }: { sessionId: string }) {
       if (sessionError || participantError || !session || participant?.stream_id !== streamId) return setMessage("Esta câmera não pertence à sua sessão.");
 
       const { data: character } = participant.character_id
-        ? await supabase.from("characters").select("nome, avatar, foto_url, atributos").eq("id", participant.character_id).maybeSingle<CharacterData>()
+        ? { data: await loadCharacter(participant.character_id) }
         : { data: null };
       if (disposed) return;
 
       const joinedAt = Date.parse(participant.joined_at);
-      const stats = characterStats(character?.atributos);
+      const stats = characterStats(character);
       const initialMember: CameraMember = {
         user_id: user.id,
         stream_id: streamId,
@@ -101,13 +128,9 @@ export default function CameraPublisher({ sessionId }: { sessionId: string }) {
 
       if (participant.character_id) {
         const refreshCharacter = async () => {
-          const { data: latestCharacter } = await supabase
-            .from("characters")
-            .select("nome, avatar, foto_url, atributos")
-            .eq("id", participant.character_id)
-            .maybeSingle<CharacterData>();
+          const latestCharacter = await loadCharacter(participant.character_id);
           if (disposed || !latestCharacter || !memberRef.current) return;
-          const latestStats = characterStats(latestCharacter.atributos);
+          const latestStats = characterStats(latestCharacter);
           const current = memberRef.current;
           const nextMember: CameraMember = {
             ...current,
