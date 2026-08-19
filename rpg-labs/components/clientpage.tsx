@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase/client";
@@ -472,6 +473,15 @@ export default function PersonagensPage() {
         }
         .char-card:hover .char-delete{opacity:1;}
         .char-delete:hover{background:#8b0000;color:#fff;border-color:#cc1a1a;}
+        .char-edit{
+          position:absolute;bottom:10px;left:10px;z-index:2;
+          border:1px solid rgba(180,30,30,0.4);background:rgba(22,3,3,.88);
+          color:#c79595;padding:5px 10px;text-decoration:none;
+          font-family:'Cinzel',serif;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;
+          transition:all .2s;opacity:0;
+        }
+        .char-card:hover .char-edit{opacity:1;}
+        .char-edit:hover{border-color:#cc1a1a;background:#5f0808;color:#fff;}
 
         /* ── Modal de detalhes ── */
         .modal-overlay{
@@ -496,6 +506,9 @@ export default function PersonagensPage() {
         .modal-desc{font-family:'Crimson Pro',serif;font-size:1rem;color:#9a7a7a;line-height:1.7;font-style:italic;}
         .modal-close{position:absolute;top:12px;right:12px;background:transparent;border:1px solid rgba(100,20,20,0.4);color:#8a3030;cursor:pointer;padding:4px 10px;font-size:0.7rem;font-family:'Cinzel',serif;letter-spacing:0.1em;transition:all 0.2s;}
         .modal-close:hover{background:rgba(140,10,10,0.2);color:#fff;border-color:#cc1a1a;}
+        .modal-edit{position:absolute;top:12px;left:12px;border:1px solid rgba(150,30,30,.5);color:#c99797;padding:5px 11px;text-decoration:none;font-family:'Cinzel',serif;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;transition:all .2s;}
+        .modal-edit:hover{border-color:#cc1a1a;background:#5f0808;color:#fff;}
+        @media(max-width:768px){.char-edit,.char-delete{opacity:1}}
 
         /* ── Formulário de criação ── */
         .form-panel{
@@ -830,6 +843,13 @@ export default function PersonagensPage() {
                       <div className="char-meta">{p.classe} · {p.raca}</div>
                       {p.descricao && <div className="char-desc">{p.descricao}</div>}
                     </div>
+                    <Link
+                      className="char-edit"
+                      href={`/personagens/${p.id}/editar`}
+                      onClick={event => event.stopPropagation()}
+                    >
+                      Editar
+                    </Link>
                     <button
                       className="char-delete"
                       onClick={e => { e.stopPropagation(); handleDelete(p.id); }}
@@ -856,6 +876,7 @@ export default function PersonagensPage() {
         <div className="modal-overlay" onClick={() => setSelectedChar(null)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
             <div className="modal-top-line" />
+            <Link className="modal-edit" href={`/personagens/${selectedChar.id}/editar`}>Editar ficha</Link>
             <button className="modal-close" onClick={() => setSelectedChar(null)}><Icon name="fechar" /> Fechar</button>
             <div className="modal-avatar">{renderAvatar(selectedChar.avatar, "7rem", selectedChar.foto)}</div>
             <div className="modal-body">
