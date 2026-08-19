@@ -130,6 +130,8 @@ export default function CampaignsClient() {
       setSelectingCharacter(false);
       return;
     }
+    const { error: cleanupError } = await supabase.from("characters").update({ campaign_id: null }).eq("campaign_id", characterCampaign.id).neq("id", characterId);
+    if (cleanupError) console.warn("[campaigns:character-cleanup]", cleanupError);
     router.push(`/campanhas/${characterCampaign.id}`);
   };
 

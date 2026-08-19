@@ -70,7 +70,7 @@ async function loadCharacter(characterId: string) {
 
 function CharacterPortrait({ member }: { member: CameraMember }) {
   const avatar = member.avatar && member.avatar in ICONS ? member.avatar as IconName : "usuario";
-  return <div className="camera-source-portrait"><div className="camera-source-portrait-card"><div className="camera-source-portrait-picture">{member.foto_url ? <Image src={member.foto_url} alt={`Retrato de ${member.nome ?? "personagem"}`} fill sizes="420px" unoptimized /> : <Icon name={avatar} />}</div><div className="camera-source-portrait-data"><strong>{member.nome ?? "Jogador"}</strong><div className="camera-source-stat life"><span>{member.vida}</span></div><div className="camera-source-stat sanity"><span>{member.sanidade}</span></div></div></div></div>;
+  return <div className="camera-source-portrait"><div className="camera-source-portrait-card"><div className="camera-source-portrait-picture">{member.foto_url ? <Image src={member.foto_url} alt={`Retrato de ${member.nome ?? "personagem"}`} fill sizes="420px" unoptimized /> : <Icon name={avatar} />}</div><div className="camera-source-portrait-data"><strong>{member.nome ?? "Sem personagem"}</strong><div className="camera-source-stat life"><span>{member.vida}</span></div><div className="camera-source-stat sanity"><span>{member.sanidade}</span></div></div></div></div>;
 }
 
 export default function CameraPublisher({ sessionId }: { sessionId: string }) {
@@ -107,7 +107,7 @@ export default function CameraPublisher({ sessionId }: { sessionId: string }) {
       const initialMember: CameraMember = {
         user_id: user.id,
         stream_id: streamId,
-        nome: character?.nome ?? "Jogador",
+        nome: character?.nome ?? null,
         avatar: character?.avatar ?? "usuario",
         foto_url: character?.foto_url ?? null,
         ...stats,
@@ -134,7 +134,7 @@ export default function CameraPublisher({ sessionId }: { sessionId: string }) {
           const current = memberRef.current;
           const nextMember: CameraMember = {
             ...current,
-            nome: latestCharacter.nome ?? "Jogador",
+            nome: latestCharacter.nome ?? null,
             avatar: latestCharacter.avatar ?? "usuario",
             foto_url: latestCharacter.foto_url ?? null,
             ...latestStats,
